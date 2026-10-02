@@ -17,15 +17,46 @@ from trader.api.auth import make_ws_login_args
 Callback = Callable[[Dict[str, Any]], None]
 
 
+# Kline intervals are encoded in the CHANNEL NAME, not a separate argument —
+# there is no `interval` field on the subscribe args (see websocket/public/kline
+# channel). `{price_type}_kline_{interval}`, e.g. market_kline_15min.
+KLINE_INTERVALS = {
+    "1m": "1min", "3m": "3min", "5m": "5min", "15m": "15min",
+    "30m": "30min", "1h": "60min", "2h": "2h", "4h": "4h",
+    "6h": "6h", "8h": "8h", "12h": "12h",
+    "1d": "1day", "1w": "1week", "1M": "1month",
+}
+# REST kline uses "1M" for the monthly interval; the channel uses "1month".
+_CHANNEL_TO_REST = {v: k for k, v in KLINE_INTERVALS.items()}
+
+
+def kline_channel(interval: str, price_type: str = "market") -> str:
+    """Build the kline channel name for a REST-style interval like `15m`."""
+    unit = KLINE_INTERVALS.get(interval, interval)
+    return f"{price_type}_kline_{unit}"
+
+
+def interval_from_channel(ch: str) -> str | None:
+    """Reverse of kline_channel: `market_kline_15min` -> `15m`, else None."""
+    if not ch or "_kline_" not in ch:
+        return None
+    suffix = ch.rsplit("_kline_", 1)[1]
+    return _CHANNEL_TO_REST.get(suffix, suffix)
+
+
 class BitunixWSClient:
     """
     Manages one public and one private WebSocket connection.
 
-    Public  channels: kline, depth, ticker, tickers, markPrice, trade
+    Public  channels: trade, ticker, depth_book1, {market|mark}_kline_{interval}
     Private channels: balance, order, position, tpsl
 
     Subscription message format:
         {"op": "subscribe", "args": [{"ch": "<channel>", "symbol": "<BTCUSDT>"}]}
+
+    Klines are the exception: the interval is part of the channel name and no
+    `interval` argument exists. Switching intervals requires unsubscribing the
+    old channel first — see kline_channel().
     """
 
     PING_INTERVAL = 3   # seconds between pings
@@ -41,6 +72,7 @@ class BitunixWSClient:
         self._callbacks: Dict[str, List[Callback]] = {}
         self._public_subscriptions: List[Dict[str, str]] = []
         self._private_subscriptions: List[Dict[str, str]] = []
+        self._pending_unsubscribes: List[Dict[str, str]] = []
 
         self._pub_ws: Optional[websockets.WebSocketClientProtocol] = None
         self._priv_ws: Optional[websockets.WebSocketClientProtocol] = None
@@ -53,8 +85,39 @@ class BitunixWSClient:
         self._callbacks.setdefault(channel, []).append(callback)
 
     def subscribe_kline(self, symbol: str, interval: str) -> None:
-        """Public kline channel — interval e.g. '1m', '5m', '1h'."""
-        self._public_subscriptions.append({"ch": "kline", "symbol": symbol, "interval": interval})
+        """Public kline channel. The interval lives in the channel name."""
+        self._public_subscriptions.append(
+            {"ch": kline_channel(interval), "symbol": symbol}
+        )
+
+    def unsubscribe_kline(self, symbol: str, interval: str) -> None:
+        """Drop a kline subscription. Required before re-subscribing the same
+        symbol at a different interval — Bitunix keeps both otherwise."""
+        sub = {"ch": kline_channel(interval), "symbol": symbol}
+        self._public_subscriptions = [s for s in self._public_subscriptions if s != sub]
+        self._pending_unsubscribes.append(sub)
+
+    def set_kline_subscriptions(self, symbol: str, intervals: List[str]) -> None:
+        """Replace this symbol's kline channels with exactly `intervals`.
+
+        The caller should `await apply_subscriptions()` on a live connection so
+        the removals actually reach the gateway.
+        """
+        keep = [s for s in self._public_subscriptions
+                if interval_from_channel(s.get("ch", "")) is None]
+        dropped = [s for s in self._public_subscriptions
+                   if s not in keep and s.get("symbol") == symbol]
+        wanted = [{"ch": kline_channel(tf), "symbol": symbol} for tf in intervals]
+        self._public_subscriptions = keep + wanted
+        self._pending_unsubscribes.extend(dropped)
+
+    async def apply_subscriptions(self) -> None:
+        """Flush pending unsubscribe messages to the live public socket."""
+        if not self._pending_unsubscribes:
+            return
+        subs, self._pending_unsubscribes = self._pending_unsubscribes, []
+        if self._pub_ws:
+            await self._send_subscribe(self._pub_ws, subs, op="unsubscribe")
 
     def subscribe_depth(self, symbol: str) -> None:
         self._public_subscriptions.append({"ch": "depth_book1", "symbol": symbol})
@@ -170,9 +233,10 @@ class BitunixWSClient:
                 return
             logger.debug(f"WS login: ignoring pre-login message {data}")
 
-    async def _send_subscribe(self, ws: websockets.WebSocketClientProtocol, subs: List[Dict]) -> None:
+    async def _send_subscribe(self, ws: websockets.WebSocketClientProtocol,
+                              subs: List[Dict], op: str = "subscribe") -> None:
         if subs:
-            await ws.send(json.dumps({"op": "subscribe", "args": subs}))
+            await ws.send(json.dumps({"op": op, "args": subs}))
 
     async def _message_loop(self, ws: websockets.WebSocketClientProtocol) -> None:
         ping_task = asyncio.create_task(self._ping_loop(ws))

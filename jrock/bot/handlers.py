@@ -101,6 +101,7 @@ BOT_COMMANDS = [
     ("start", "Show help and intro"),
     ("harness", "Show runtime status"),
     ("trader", "Bitunix futures console"),
+    ("signal", "Live price, signal, confidence, PNL"),
     ("soul", "Show/edit active soul"),
     ("skills", "List and manage skills"),
     ("memory", "Search and manage memories"),
@@ -967,6 +968,8 @@ def register(app: Application, core) -> None:
         CommandHandler("tf",  _alias_trader("timeframe")),
         CommandHandler("tc",  _alias_trader("close")),
         CommandHandler("scan", _alias_trader("scan")),
+        CommandHandler("sig", _alias_trader("signal")),
+        CommandHandler("signal", _alias_trader("signal")),
         # Quick report toggles
         CommandHandler("ron",  _alias_trader("report on")),
         CommandHandler("roff", _alias_trader("report off")),

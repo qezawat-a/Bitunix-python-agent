@@ -66,6 +66,9 @@ DISPATCH = {
     # reporting
     "report":       "_report",
 
+    # live signal snapshot
+    "signal":       "_signal",
+
     # scanning
     "scan":         "_scan_cmd",
 
@@ -173,8 +176,9 @@ async def _load_cfg() -> dict:
         "universe_rank":    await _kv_get("t/universe_rank",   "VOLUME"),
         "min_volume":       await _kv_get("t/min_volume",      "1000000"),
         "tpsl_method":      await _kv_get("t/tpsl_method",     "POSITION"),
-        "tp_mode":          await _kv_get("t/tp_mode",         "FIXED_R"),
-        "trailing_method":  await _kv_get("t/trailing_method", "ATR"),
+        "tp_mode":          await _kv_get("t/tp_mode",         "PARTIAL"),
+        "trailing_method":  await _kv_get("t/trailing_method", "RATIO"),
+        "engine_on":        await _kv_get("t/engine_on",       "false"),
         "report_on":        await _kv_get("t/report_on",       "false"),
         "report_interval":  await _kv_get("t/report_interval", "30"),
     }
@@ -225,6 +229,14 @@ async def _start(args: str, update: Update, ctx) -> str:
         breakeven_threshold_pct=float(c["breakeven"]),
         trailing_trigger_roi_pct=float(c["trailing_trigger"]),
         trailing_stop_pct=float(c["trailing_stop"]),
+        trailing_distance=float(c["trailing_dist"]),
+        tpsl_method=c["tpsl_method"],
+        trailing_method=c["trailing_method"],
+        account_tp=float(c["account_tp"]),
+        account_sl=float(c["account_sl"]),
+        scan_interval=float(c["scan_interval"]),
+        guard_interval=float(c["guard_interval"]),
+        mid_interval=float(c["mid_interval"]),
     )
 
     # persist resolved values
@@ -233,6 +245,8 @@ async def _start(args: str, update: Update, ctx) -> str:
     await _kv_set("t/timeframes", ",".join(cfg.timeframes))
 
     engine = TradingEngine(cfg)
+    engine.account_guard.account_tp = cfg.account_tp
+    engine.account_guard.account_sl = cfg.account_sl
     cid = update.effective_chat.id
     bot = ctx.bot
 
@@ -245,6 +259,8 @@ async def _start(args: str, update: Update, ctx) -> str:
     engine.on_notify(lambda m: asyncio.create_task(notify(m)))
     ctx.bot_data["trader_engine"] = engine
     ctx.bot_data["trader_notify"] = notify
+    # Remember we were running, so a restart can bring us back up.
+    await _kv_set("t/engine_on", "true")
 
     async def _run():
         try:
@@ -269,6 +285,7 @@ async def _stop(args: str, update: Update, ctx) -> str:
     if not _is_owner(update):
         return "❌ Owner only"
     e = _engine(ctx)
+    await _kv_set("t/engine_on", "false")
     if not e:
         return "Engine not running"
     await e.stop()
@@ -325,6 +342,117 @@ async def _autotrade(args: str, update: Update, ctx) -> str:
         return "✅ Autotrade OFF"
     val = await _kv_get("t/autotrade", "false")
     return f"Autotrade: `{'ON' if _bool(val) else 'OFF'}`"
+
+
+# ── /signal ──────────────────────────────────────────────────────────────────
+
+def _fmt_age(seconds: int) -> str:
+    if seconds < 60:
+        return f"{seconds}s ago"
+    if seconds < 3600:
+        return f"{seconds // 60}m ago"
+    if seconds < 86400:
+        return f"{seconds // 3600}h ago"
+    return f"{seconds // 86400}d ago"
+
+
+def _signal_line(sig: dict, quote_prec: int = 2) -> str:
+    """One-line summary of the engine's latest signal, or why there is none."""
+    direction = sig.get("direction")
+    conf = sig.get("confidence")
+    age = sig.get("age_s", 0)
+    icon = {"BUY": "🟢", "SELL": "🔴"}.get(direction, "⚪")
+    name = direction or "NO SIGNAL"
+    head = f"{icon} *{name}*"
+    if conf is not None:
+        head += f" — confidence `{conf}%`"
+    if sig.get("price"):
+        head += f"\nPrice: `{sig['price']:.{quote_prec}f}`"
+    head += f"\nWhen: `{_fmt_age(age)}`"
+    if sig.get("timeframe"):
+        head += f" on `{sig['timeframe']}`"
+    if sig.get("opened") is True:
+        head += "\n✅ Order was placed"
+        if sig.get("order_id"):
+            head += f" (`{sig['order_id']}`)"
+    elif sig.get("opened") is False and sig.get("error"):
+        head += f"\n❌ Order failed: `{sig['error']}`"
+    if sig.get("qty"):
+        head += f"\nQty: `{sig['qty']}` | SL: `{sig.get('sl') or '—'}`"
+        head += f" | TP: `{sig.get('tp') or '—'}`"
+    votes = sig.get("votes") or {}
+    if votes:
+        head += (f"\nVotes: `{votes.get('BUY', 0)}` buy / "
+                 f"`{votes.get('SELL', 0)}` sell")
+    if sig.get("strategies"):
+        head += f"\nStrategies: `{', '.join(sig['strategies'])}`"
+    return head
+
+
+async def _signal(args: str, update: Update, ctx) -> str:
+    """Status + live price + last signal + PNL, all read off the engine.
+
+    No exchange call: the engine already tracks all of it, so this stays one
+    round trip instead of the four a hand-rolled check would need.
+    """
+    e = _engine(ctx)
+    if not e or not e._running:
+        c = await _load_cfg()
+        return (
+            f"⏸ *Engine stopped* — nothing to report.\n"
+            f"Symbol: `{c['symbol']}` | TF: `{c['timeframes']}`\n"
+            f"Start it with `/ton`, or scan once with `/scan`."
+        )
+
+    snap = e.signal_snapshot()
+    c = await _load_cfg()
+    quote_prec = e.cfg.quote_precision
+    sig = snap.get("signal") or {}
+
+    out = [
+        f"*📡 Signal — {snap['symbol']}*",
+        f"Engine: `{'✅ running' if snap['running'] else '⏸ stopped'}` | "
+        f"Mode: `{'📄 PAPER' if snap['paper'] else '🔴 LIVE'}`",
+        f"Timeframes: `{', '.join(snap['timeframes'])}`",
+        "",
+        _signal_line(sig, quote_prec),
+    ]
+
+    if snap.get("candles"):
+        bars = " | ".join(f"{tf}:{n}" for tf, n in snap["candles"].items())
+        out.append(f"\nCandles loaded: `{bars}`")
+
+    positions = snap.get("positions") or []
+    out.append("")
+    if positions:
+        out.append(f"*Open positions ({len(positions)})*")
+        for p in positions:
+            flags = []
+            if p["breakeven"]:
+                flags.append("🎯BE")
+            if p["trailing"]:
+                flags.append("📈Trail")
+            out.append(
+                f"• `{p['symbol']}` {p['side']} qty=`{p['qty']}`\n"
+                f"  Entry `{p['entry']:.{quote_prec}f}` → "
+                f"now `{p['price']:.{quote_prec}f}`\n"
+                f"  PNL `{p['pnl_pct']:+.2f}%` | SL `{p['sl'] or '—'}` "
+                f"| TP `{p['tp'] or '—'}` | model `{p['method']}`"
+                + (f"\n  {' '.join(flags)}" if flags else "")
+            )
+        out.append(f"\nTotal PNL: `{snap['total_pnl_pct']:+.2f}%`")
+    else:
+        out.append("_No open positions._")
+
+    # Model 4 — say whether the account-wide guard is armed.
+    atp = float(c.get("account_tp") or 0)
+    asl = float(c.get("account_sl") or 0)
+    if atp or asl:
+        out.append(
+            f"\n🛑 Account guard: TP `{atp or '—'}` | SL `{asl or '—'}` "
+            f"{c['margin_coin'] if 'margin_coin' in c else 'USDT'}"
+        )
+    return "\n".join(out)
 
 
 # ── status / settings ─────────────────────────────────────────────────────────
@@ -433,7 +561,11 @@ async def _report(args: str, update: Update, ctx) -> str:
 
 async def _start_reporter(update: Update, ctx) -> None:
     _stop_reporter(ctx)
-    ivl = int(await _kv_get("t/report_interval", "30"))
+    try:
+        ivl = int(await _kv_get("t/report_interval", "30"))
+    except ValueError:
+        ivl = 30
+    ivl = max(5, ivl)
     cid = update.effective_chat.id
     bot = ctx.bot
 
@@ -441,24 +573,47 @@ async def _start_reporter(update: Update, ctx) -> None:
         while ctx.bot_data.get("reporter_running"):
             e = _engine(ctx)
             if e and e._running:
-                lines = [f"📊 *Report* (every {ivl}s)"]
-                for pid, pos in e._open_positions.items():
-                    lines.append(
-                        f"• `{pos.symbol}` {pos.side}"
-                        f" price=`{pos.current_price:.6f}`"
-                        f" pnl=`{pos.unrealized_pnl_pct:+.2f}%`"
-                        f"{' 🎯BE' if pos.tpsl and pos.tpsl.breakeven_set else ''}"
-                        f"{' 📈Trail' if pos.tpsl and pos.tpsl.trailing_active else ''}"
-                    )
-                if len(lines) > 1:
-                    try:
-                        await bot.send_message(cid, "\n".join(lines), parse_mode=ParseMode.MARKDOWN)
-                    except Exception:
-                        pass
+                # Report what the ENGINE knows — price, last signal, PNL — even
+                # when nothing is open. The old loop only built a message if
+                # there was at least one open position, so a signal with no fill
+                # produced silence, which is exactly when you want to hear.
+                try:
+                    text = format_report(e)
+                    if text:
+                        await bot.send_message(cid, text, parse_mode=ParseMode.MARKDOWN)
+                except Exception as e:
+                    logger.debug(f"report tick failed: {e}")
             await asyncio.sleep(ivl)
 
     ctx.bot_data["reporter_running"] = True
     ctx.bot_data["reporter_task"] = asyncio.create_task(_loop())
+
+
+def format_report(e) -> str:
+    """Compact periodic report: price, last signal, open positions, PNL."""
+    snap = e.signal_snapshot()
+    qp = e.cfg.quote_precision
+    sig = snap.get("signal") or {}
+    lines = [f"📊 *{snap['symbol']}* — every {e.cfg.report_interval}s"
+             if hasattr(e.cfg, "report_interval") else
+             f"📊 *{snap['symbol']}*"]
+    if snap.get("price"):
+        lines.append(f"Price: `{snap['price']:.{qp}f}`")
+    if sig.get("direction"):
+        icon = {"BUY": "🟢", "SELL": "🔴"}.get(sig["direction"], "⚪")
+        lines.append(f"{icon} Signal: `{sig['direction']}` "
+                     f"`{sig.get('confidence', '?')}%` "
+                     f"({_fmt_age(sig.get('age_s', 0))})")
+    else:
+        lines.append("⚪ Signal: none yet")
+
+    for p in snap.get("positions") or []:
+        flags = (" 🎯BE" if p["breakeven"] else "") + (" 📈Trail" if p["trailing"] else "")
+        lines.append(f"• `{p['symbol']}` {p['side']} `{p['pnl_pct']:+.2f}%` "
+                     f"SL:`{p['sl'] or '—'}` TP:`{p['tp'] or '—'}`{flags}")
+    if snap.get("positions"):
+        lines.append(f"Total: `{snap['total_pnl_pct']:+.2f}%`")
+    return "\n".join(lines)
 
 
 def _stop_reporter(ctx) -> None:
@@ -466,6 +621,57 @@ def _stop_reporter(ctx) -> None:
     task = ctx.bot_data.pop("reporter_task", None)
     if task:
         task.cancel()
+
+
+async def restore_reporter(update: Update, ctx) -> None:
+    """Re-arm reporting after a restart if it was on when we last stopped.
+
+    `t/report_on` is persisted, but nothing re-armed it: the reporter only ever
+    started from an explicit `/ron`, so every restart silently dropped back to
+    "no news in Telegram" while the setting still read ON.
+    """
+    if not _bool(await _kv_get("t/report_on", "false")):
+        return
+    await _start_reporter(update, ctx)
+    ctx.bot_data["report_restored"] = True
+
+
+async def restore_engine(update: Update, ctx) -> None:
+    """Restart the engine after a process restart, if it was running before."""
+    if not _bool(await _kv_get("t/engine_on", "false")):
+        return
+    await _start("", update, ctx)
+    ctx.bot_data["engine_restored"] = True
+
+
+async def restore_after_boot(bot, bot_data: dict) -> None:
+    """Called from post_init: bring back the engine and reporter if they were on.
+
+    There is no incoming message at boot, so this builds the same minimal
+    update/ctx objects the handlers expect. News goes to the first configured
+    admin — the one who ran `/ton` last time.
+    """
+    from types import SimpleNamespace
+    admins = Config.ADMIN_IDS
+    if not admins:
+        return
+    chat_id = admins[0]
+    user_id = chat_id
+    update = SimpleNamespace(
+        effective_user=SimpleNamespace(id=user_id),
+        effective_chat=SimpleNamespace(id=chat_id),
+    )
+    ctx = SimpleNamespace(bot=bot, bot_data=bot_data)
+
+    # Reporter first: it reports the engine's sync, so it must be listening.
+    try:
+        await restore_reporter(update, ctx)
+    except Exception as e:
+        logger.exception(f"restore_reporter failed: {e}")
+    try:
+        await restore_engine(update, ctx)
+    except Exception as e:
+        logger.exception(f"restore_engine failed: {e}")
 
 
 # ── scan commands ─────────────────────────────────────────────────────────────
@@ -1023,6 +1229,9 @@ async def _set_scan_interval(args: str, update: Update, ctx) -> str:
     except ValueError:
         return f"Current scan interval: `{await _kv_get('t/scan_interval', '15')}s`"
     await _kv_set("t/scan_interval", str(sec))
+    e = _engine(ctx)
+    if e:
+        e.cfg.scan_interval = sec
     return f"✅ Scan interval: `{sec}s`"
 
 
@@ -1032,6 +1241,9 @@ async def _set_guard_interval(args: str, update: Update, ctx) -> str:
     except ValueError:
         return f"Current guard interval: `{await _kv_get('t/guard_interval', '15')}s`"
     await _kv_set("t/guard_interval", str(sec))
+    e = _engine(ctx)
+    if e:
+        e.cfg.guard_interval = sec
     return f"✅ Guard interval: `{sec}s`"
 
 
@@ -1039,8 +1251,12 @@ async def _set_mid_interval(args: str, update: Update, ctx) -> str:
     try:
         sec = int(args.strip())
     except ValueError:
-        return f"Current mid-management interval: `{await _kv_get('t/mid_interval', '15')}s`"
+        return (f"Current mid-management interval: "
+                f"`{await _kv_get('t/mid_interval', '15')}s`")
     await _kv_set("t/mid_interval", str(sec))
+    e = _engine(ctx)
+    if e:
+        e.cfg.mid_interval = sec
     return f"✅ Mid-management interval: `{sec}s`"
 
 
@@ -1078,30 +1294,55 @@ async def _set_strategies(args: str, update: Update, ctx) -> str:
 
 
 async def _set_tpsl_method(args: str, update: Update, ctx) -> str:
+    """Pick one of Bitunix's four TP/SL models.
+
+    These are the four Bitunix actually offers — the previous ADAPTIVE/FIXED_R
+    values were ours, not theirs, and had no matching behaviour.
+    """
+    from trader.risk.tpsl import TPSLMethod
+    valid = [m.value for m in TPSLMethod]
     method = args.strip().upper()
-    valid = ("POSITION", "PARTIAL", "ADAPTIVE", "FIXED_R")
     if method not in valid:
         cur = await _kv_get("t/tpsl_method", "POSITION")
-        return f"Current: `{cur}`\nValid: `{' | '.join(valid)}`"
+        return (
+            f"Current: `{cur}`\n"
+            f"Valid (Bitunix's four models):\n"
+            f"`{' | '.join(valid)}`"
+        )
     await _kv_set("t/tpsl_method", method)
+    e = _engine(ctx)
+    if e:
+        e.cfg.tpsl_method = method
     return f"✅ TPSL method: `{method}`"
 
 
 async def _set_tp_mode(args: str, update: Update, ctx) -> str:
     mode = args.strip().upper()
-    valid = ("FIXED_R", "ADAPTIVE", "PARTIAL")
+    valid = ("POSITION", "PARTIAL", "TRAILING")
     if mode not in valid:
-        cur = await _kv_get("t/tp_mode", "FIXED_R")
+        cur = await _kv_get("t/tp_mode", "PARTIAL")
         return f"Current: `{cur}`\nValid: `{' | '.join(valid)}`"
     await _kv_set("t/tp_mode", mode)
+    e = _engine(ctx)
+    if e:
+        e.cfg.tp_mode = mode
     return f"✅ TP mode: `{mode}`"
 
 
 async def _set_trail_method(args: str, update: Update, ctx) -> str:
+    """Retrace mode for TRAILING TP/SL — matches the UI's two choices."""
     method = args.strip().upper()
-    valid = ("ATR", "RATIO", "INTERVAL")
+    valid = ("RATIO", "INTERVAL")
     if method not in valid:
-        cur = await _kv_get("t/trailing_method", "ATR")
-        return f"Current: `{cur}`\nValid: `{' | '.join(valid)}`"
+        cur = await _kv_get("t/trailing_method", "RATIO")
+        return (
+            f"Current: `{cur}`\n"
+            f"Valid: `{' | '.join(valid)}`\n"
+            f"`RATIO` = % off the peak (`trailing_stop`)\n"
+            f"`INTERVAL` = absolute distance off the peak (`trailing_dist`)"
+        )
     await _kv_set("t/trailing_method", method)
-    return f"✅ Trailing method: `{method}`"
+    e = _engine(ctx)
+    if e:
+        e.cfg.trailing_method = method
+    return f"✅ Trailing mode: `{method}`"

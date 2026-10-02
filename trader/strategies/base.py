@@ -22,6 +22,9 @@ class Signal:
     sl_price: Optional[float] = None
     tp_price: Optional[float] = None
     meta: Dict[str, Any] = field(default_factory=dict)
+    # Filled in by the engine so /signal and the report can name the source.
+    strategy: str = ""
+    timeframe: str = ""
 
 
 class BaseStrategy:

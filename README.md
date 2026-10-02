@@ -74,7 +74,13 @@ python3 run.py
 | Command | What it does |
 |---------|-------------|
 | `/trader status` | Engine state, open positions, mode |
+| `/signal` (`/sig`) | Live signal — status, report, price + confidence + PNL, all in one message |
 | `/ts` | All settings (symbol, leverage, TPSL, risk, etc.) |
+
+`/signal` is the "give me everything at once" command. It reads the engine's
+in-memory snapshot, so it costs **zero** exchange API calls and answers
+instantly — status, the periodic report, current price, the last signal with its
+confidence and which strategies voted, and per-position PNL for anything open.
 
 ### Reporting
 
@@ -143,10 +149,26 @@ python3 run.py
 | `/trader scan_interval` | `15` | Scan interval seconds |
 | `/trader guard_interval` | `15` | Guard interval seconds |
 | `/trader mid_interval` | `15` | Mid-management interval seconds |
-| `/trader tpsl_method` | `POSITION` | POSITION \| PARTIAL \| ADAPTIVE \| FIXED_R |
-| `/trader tp_mode` | `FIXED_R` | FIXED_R \| ADAPTIVE \| PARTIAL |
-| `/trader trailing_method` | `ATR` | ATR \| RATIO \| INTERVAL |
+| `/trader tpsl_method` | `POSITION` | POSITION \| PARTIAL \| TRAILING \| ACCOUNT |
+| `/trader tp_mode` | `PARTIAL` | POSITION \| PARTIAL \| TRAILING (initial TP shape) |
+| `/trader trailing_method` | `RATIO` | RATIO (pct off peak) \| INTERVAL (abs off peak) |
 | `/trader strategies` | `EMA,RSI,MACD` | Active strategies |
+
+### Take-Profit / Stop-Loss
+
+The bot implements the **four TP/SL models Bitunix actually offers**, not an
+invented set. Two have dedicated REST endpoints; two exist only in the web/app
+order panel, so the bot implements them client-side:
+
+| Model | REST call | Shape |
+|-------|-----------|-------|
+| `POSITION` | `POST /api/v1/futures/tpsl/position/place_order` | One TP and one SL for the whole position. On trigger it closes everything at market. |
+| `PARTIAL` | `POST /api/v1/futures/tpsl/place_order` | A ladder of partial closes, sized with `tpQty`/`slQty` in base coin (default 30/40/30). |
+| `TRAILING` | *(no endpoint — client-side)* | Activation price + retracement. The bot rewrites the position's TP/SL order as the peak moves. Retrace is measured by `trailing_method`: `RATIO` = percent off peak, `INTERVAL` = absolute distance off peak. |
+| `ACCOUNT` | *(no endpoint — client-side)* | Account-level TP/SL in USDT across **all** positions. The bot watches total account PnL and calls `POST /api/v1/futures/trade/close_all_position` when crossed. Set with `/trader account_tp` and `/trader account_sl`; `0` disables that side. |
+
+On top of any model, breakeven and trailing run as local overlays, applied by
+modifying the position's TP/SL order rather than waiting for a fill.
 
 ### Short Aliases
 
@@ -157,6 +179,7 @@ python3 run.py
 /tc   = /trader close          /scan = /trader scan
 /ron  = /trader report on      /roff = /trader report off
 /ton  = /trader start          /toff = /trader stop
+/sig  = /signal
 /mem  = /memory
 ```
 
@@ -181,20 +204,47 @@ python3 run.py
 
 ## TPSL System
 
-The bot manages TP/SL automatically per position:
+The bot manages TP/SL automatically per position, using the four models Bitunix
+documents (see [Take-Profit / Stop-Loss](#take-profit--stop-loss) above for the
+endpoints behind each):
 
-| Method | Description |
-|--------|-------------|
+| Model | Description |
+|-------|-------------|
 | `POSITION` | One TP/SL for the whole position |
-| `PARTIAL` | Scale-out ladder (partial close at each TP level) |
-| `ADAPTIVE` | Target chosen from trend strength/structure |
-| `FIXED_R` | Multiple of the initial stop loss |
+| `PARTIAL` | Scale-out ladder (partial close at each TP level), sized in base coin |
+| `TRAILING` | Activation price + retracement stop; no fixed target |
+| `ACCOUNT` | Account-wide TP/SL across all positions |
 
 **Mid-management (automatic):**
-- **Breakeven**: When PNL ≥ `breakeven`% → SL moves to entry
-- **Trailing**: When ROI ≥ `trailing`% → trailing stop activates
-- **Guard**: Checks liquidation distance every `guard_interval` seconds
-- **Reversal**: If market reverses against position → early exit
+- **Breakeven**: When PNL ≥ `breakeven`% → SL moves to entry (only ever tightens — it will never drag a trailed stop back down to entry)
+- **Trailing**: When ROI ≥ `trailing`% → trailing stop activates and ratchets along the peak
+- **Guard**: Re-reads positions from REST every `guard_interval` seconds; the position WS push omits `avgOpenPrice`/`liqPrice`, so entry and liquidation price only come from here
+- **Account TP/SL**: total account PnL is checked every `guard_interval` and closes everything when crossed
+
+---
+
+## Order Sizing
+
+`trader/risk/calculator.py` implements Bitunix's three documented order units.
+All three resolve to the same base-coin quantity — they differ only in what you
+ask for:
+
+| Unit | You specify | The bot computes |
+|------|-------------|-------------------|
+| Nominal Value | `notional` in USDT | size at leverage: `qty = notional / entry_price` |
+| **Cost Value** (default) | `cost` in USDT of margin | `notional = cost × leverage`, then `qty = notional / entry_price` |
+| Quantity Unit | `qty` in base coin | used as-is |
+
+Cost Value is the default because it maps directly to the `risk_pct` setting:
+the bot spends `balance × risk%` of margin, so the loss at the stop is the
+number you chose. Quantities are floored to the pair's `basePrecision` so
+rounding can never push a trade past its risk budget, then clamped to
+`minTradeVolume` / `maxMarketOrderVolume`. If the result rounds to zero the trade
+is rejected rather than sent as dust.
+
+The calculator also returns the resulting notional, required margin, and both
+long/short liquidation prices, using the tiered maintenance margin rate from
+`GET /api/v1/futures/account/get_position_tiers`.
 
 ---
 
@@ -246,8 +296,8 @@ For 24/7: see `DEPLOY.md` (VPS + systemd + GitHub Actions auto-deploy).
 │   │   └── ws.py             # WebSocket (public + private)
 │   ├── strategies/           # 10 indicator strategies
 │   ├── risk/
-│   │   ├── tpsl.py           # TPSL automation (breakeven + trailing)
-│   │   ├── calculator.py     # Position sizing
+│   │   ├── tpsl.py           # Bitunix's four TP/SL models + account guard
+│   │   ├── calculator.py     # Order units (nominal / cost / quantity) + sizing
 │   │   └── liquidation.py    # Liquidation price calculation
 │   └── engine_enhanced.py    # Main trading engine
 │

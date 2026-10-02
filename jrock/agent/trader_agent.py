@@ -26,9 +26,11 @@ class TraderContext:
     open_positions: dict[str, dict] = None
     pending_orders: list[dict] = None
     
-    # Risk parameters
-    tpsl_mode: str = "ADAPTIVE"  # POSITION | PARTIAL | ADAPTIVE | FIXED_R
-    trailing_method: str = "ATR"  # ATR | RATIO | INTERVAL
+    # Risk parameters. tpsl_mode is one of Bitunix's four documented TP/SL
+    # models; trailing_method is how a TRAILING stop measures its retracement
+    # off the peak (RATIO = percent, INTERVAL = absolute distance).
+    tpsl_mode: str = "POSITION"  # POSITION | PARTIAL | TRAILING | ACCOUNT
+    trailing_method: str = "RATIO"  # RATIO | INTERVAL
     trailing_callback: float = 0.5
     account_tp_usdt: float = 0.0  # Close all when profit reaches this
     account_sl_usdt: float = 0.0  # Close all when loss reaches this

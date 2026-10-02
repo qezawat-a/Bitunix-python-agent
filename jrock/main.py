@@ -54,6 +54,14 @@ async def _post_init(app: Application) -> None:
           f"{core.settings.provider}/{core.settings.model} | "
           f"soul={core.settings.default_soul} | "
           f"users={core.settings.tg_allowed_ids or 'everyone'}")
+    # Bring the engine and the reporter back if they were running when we last
+    # stopped. Without this, every restart silently dropped Telegram reporting
+    # even though `report_on` was still saved as true.
+    try:
+        from .trader_handler import restore_after_boot
+        await restore_after_boot(app.bot, app.bot_data)
+    except Exception as e:
+        print(f"[jrock] boot restore skipped: {type(e).__name__}: {e}")
 
 
 async def _on_error(update, context: ContextTypes.DEFAULT_TYPE) -> None:
