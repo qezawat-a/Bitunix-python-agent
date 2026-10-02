@@ -1,21 +1,22 @@
 {
-  "tg_token": "",
+  "tg_token": "8800573659:AAG7pyAonepBe1-x-6Ol2dKJlhnFY6zuAkA",
   "tg_allowed_ids": [
+    8368047336
   ],
-  "owner_id": ,
-  "provider": "",
-  "model": "",
+  "owner_id": 8368047336,
+  "provider": "custom",
+  "model": "mercury-2.5",
   "thinking": "high",
   "auto_compat": true,
   "api_keys": {
-    "custom": "",
-    "local_base_url": ""
+    "custom": "sk_6d258a09d28a5f2043dccfd823198519",
+    "local_base_url": "https://api.inceptionlabs.ai/v1"
   },
-  "auto_approve_on_edit": false,
+  "auto_approve_on_edit": true,
   "learning": true,
   "default_soul": "fable-5.1",
   "terminal_allowed": true,
-  "max_agent_steps": 60,
+  "max_agent_steps": 30,
   "workspace": "",
   "fal_key": "",
   "edge_tts": true
