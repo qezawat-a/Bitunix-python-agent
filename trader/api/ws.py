@@ -145,11 +145,30 @@ class BitunixWSClient:
     async def _login(self, ws: websockets.WebSocketClientProtocol) -> None:
         args = make_ws_login_args(self._api_key, self._secret_key)
         await ws.send(json.dumps({"op": "login", "args": [args]}))
-        # Wait for login response
-        resp = await asyncio.wait_for(ws.recv(), timeout=10)
-        data = json.loads(resp)
-        if data.get("op") != "login":
-            logger.warning(f"Unexpected WS login response: {data}")
+        # Bitunix first sends {"op":"connect",...}; the login ack comes after it.
+        deadline = time.time() + 10
+        while True:
+            remaining = deadline - time.time()
+            if remaining <= 0:
+                logger.warning("WS login: no login response within 10s")
+                return
+            resp = await asyncio.wait_for(ws.recv(), timeout=remaining)
+            try:
+                data = json.loads(resp)
+            except json.JSONDecodeError:
+                continue
+            op = data.get("op")
+            if op == "connect":
+                continue
+            if op == "login":
+                body = data.get("data")
+                ok = body.get("result") if isinstance(body, dict) else None
+                if ok is False or data.get("code") not in (None, 0, "0"):
+                    logger.error(f"WS login rejected (check API key permissions): {data}")
+                else:
+                    logger.info("WS private login OK")
+                return
+            logger.debug(f"WS login: ignoring pre-login message {data}")
 
     async def _send_subscribe(self, ws: websockets.WebSocketClientProtocol, subs: List[Dict]) -> None:
         if subs:

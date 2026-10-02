@@ -33,11 +33,13 @@ class AppCore:
         self.active_session: dict[int, str] = {}
         self.resume: dict[int, bool] = {}
         self.bot: Bot | None = None
+        self.bot_data: dict = {}
 
 
 async def _post_init(app: Application) -> None:
     core: AppCore = app.bot_data["core"]
     core.bot = app.bot
+    core.bot_data = app.bot_data
     # Init unified store (creates tables if they don't exist)
     from .store import init_schema
     await init_schema()

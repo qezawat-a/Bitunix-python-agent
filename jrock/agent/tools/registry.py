@@ -37,6 +37,7 @@ S = {"type": "string"}
 
 def build_registry() -> dict[str, Tool]:
     from . import terminal, fs, web, generator, apps
+    from . import trader as trader_tools
 
     tools = [
         Tool("terminal_run", "Run a shell command on the machine where the bot runs. "
@@ -70,6 +71,17 @@ def build_registry() -> dict[str, Tool]:
              _p({"fact": S}, ["fact"]), _memory_store),
         Tool("memory_recall", "Recall stored facts relevant to a query.",
              _p({"query": S}, ["query"]), _memory_recall),
+        Tool("trader_get_settings", "Show the trader's saved settings (risk, leverage, "
+             "breakeven, trailing, etc.).", _p({}), trader_tools.get_settings),
+        Tool("trader_set", "Change one trader setting. key is one of: symbol, timeframes, "
+             "leverage, risk, margin_mode, position_mode, max_positions, consensus, confidence, "
+             "tf_confidence, breakeven, trailing_trigger, trailing_stop, trailing_dist, "
+             "liq_distance, account_tp, account_sl, universe, min_volume, scan_interval, "
+             "guard_interval, mid_interval, tpsl_method, tp_mode, trailing_method, strategies, "
+             "paper. Risky keys (risk, leverage, paper, symbol, margin/position mode, account "
+             "TP/SL, max_positions) need the user to tap Approve. Never change a setting the "
+             "user did not ask for.", _p({"key": S, "value": S}, ["key", "value"]),
+             trader_tools.set_setting),
         Tool("agent_spawn", "Delegate a task to a sub-agent (build|plan).",
              _p({"role": S, "task": S}, ["role", "task"]), _agent_spawn, enabled_by="all"),
     ]

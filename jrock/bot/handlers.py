@@ -175,6 +175,7 @@ def make_ctx(core, user_id: int, chat_id: int) -> AgentContext:
         skills=core.skills,
         soul=core.souls,
         session_id=core.active_session.get(user_id, ""),
+        bot_data=getattr(core, "bot_data", None),
     )
 
 

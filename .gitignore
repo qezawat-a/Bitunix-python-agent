@@ -18,3 +18,5 @@ venv/
 souls/*.json
 mcp/servers/*.lock
 data/sessions/
+data/mcp/servers.json
+data/mcp/servers.json

@@ -29,6 +29,7 @@ class AgentContext:
     skills: Any = None               # jrock.agent.skills.SkillStore
     soul: Any = None                 # jrock.agent.soul.SoulStore
     session_id: str = ""
+    bot_data: Any = None             # telegram app.bot_data (holds the trader engine)
     user_profile: dict = field(default_factory=dict)
 
     async def say(self, text: str) -> None:
