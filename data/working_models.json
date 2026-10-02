@@ -1,0 +1,4614 @@
+{
+  "base_url": "http://127.0.0.1:20128/v1",
+  "probed_at": "2026-09-30T04:06:00Z",
+  "probed": 658,
+  "working": 25,
+  "results": [
+    {
+      "model": "agnes/agnes-2.5-flash",
+      "ok": true,
+      "verdict": "OK",
+      "detail": "",
+      "ms": 31088
+    },
+    {
+      "model": "agnes/agnes-3.0-flash",
+      "ok": true,
+      "verdict": "OK",
+      "detail": "",
+      "ms": 32065
+    },
+    {
+      "model": "gcli/grok-4.6",
+      "ok": true,
+      "verdict": "OK",
+      "detail": "",
+      "ms": 793246
+    },
+    {
+      "model": "gcli/grok-4.7",
+      "ok": true,
+      "verdict": "OK",
+      "detail": "",
+      "ms": 782290
+    },
+    {
+      "model": "kc/cohere/north-mini-code:free",
+      "ok": true,
+      "verdict": "OK",
+      "detail": "",
+      "ms": 796983
+    },
+    {
+      "model": "kc/dots-studio/dots-3-note-preview:free",
+      "ok": true,
+      "verdict": "OK",
+      "detail": "",
+      "ms": 798189
+    },
+    {
+      "model": "kc/inclusionai/ling-3.0-flash-sante:free",
+      "ok": true,
+      "verdict": "OK",
+      "detail": "",
+      "ms": 805306
+    },
+    {
+      "model": "kc/kilo-auto/free",
+      "ok": true,
+      "verdict": "OK",
+      "detail": "",
+      "ms": 807195
+    },
+    {
+      "model": "kc/nvidia/nemotron-3-super-120b-a12b:free",
+      "ok": true,
+      "verdict": "OK",
+      "detail": "",
+      "ms": 814670
+    },
+    {
+      "model": "kc/nvidia/nemotron-3-ultra-550b-a55b:free",
+      "ok": true,
+      "verdict": "OK",
+      "detail": "",
+      "ms": 815775
+    },
+    {
+      "model": "kc/nvidia/nemotron-3.5-lightning:free",
+      "ok": true,
+      "verdict": "OK",
+      "detail": "",
+      "ms": 817376
+    },
+    {
+      "model": "kc/openrouter/free",
+      "ok": true,
+      "verdict": "OK",
+      "detail": "",
+      "ms": 823781
+    },
+    {
+      "model": "kc/poolside/laguna-s-2.1:free",
+      "ok": true,
+      "verdict": "OK",
+      "detail": "",
+      "ms": 828509
+    },
+    {
+      "model": "mistral/codestral-latest",
+      "ok": true,
+      "verdict": "OK",
+      "detail": "",
+      "ms": 827473
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "ok": true,
+      "verdict": "OK",
+      "detail": "",
+      "ms": 832242
+    },
+    {
+      "model": "openrouter/dots-studio/dots-3-note-preview:free",
+      "ok": true,
+      "verdict": "OK",
+      "detail": "",
+      "ms": 833823
+    },
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-sante:free",
+      "ok": true,
+      "verdict": "OK",
+      "detail": "",
+      "ms": 836716
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "ok": true,
+      "verdict": "OK",
+      "detail": "",
+      "ms": 838117
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "ok": true,
+      "verdict": "OK",
+      "detail": "",
+      "ms": 839202
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-ultra-550b-a55b:free",
+      "ok": true,
+      "verdict": "OK",
+      "detail": "",
+      "ms": 842651
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3.5-lightning:free",
+      "ok": true,
+      "verdict": "OK",
+      "detail": "",
+      "ms": 843430
+    },
+    {
+      "model": "openrouter/openrouter/free",
+      "ok": true,
+      "verdict": "OK",
+      "detail": "",
+      "ms": 844198
+    },
+    {
+      "model": "openrouter/poolside/laguna-s-2.1:free",
+      "ok": true,
+      "verdict": "OK",
+      "detail": "",
+      "ms": 845635
+    },
+    {
+      "model": "pplx/sonar",
+      "ok": true,
+      "verdict": "OK",
+      "detail": "",
+      "ms": 841800
+    },
+    {
+      "model": "pplx/sonar-pro",
+      "ok": true,
+      "verdict": "OK",
+      "detail": "",
+      "ms": 843690
+    },
+    {
+      "model": "ag/claude-opus-4-6-thinking",
+      "ok": false,
+      "verdict": "upstream403",
+      "detail": "[antigravity/claude-opus-4-6-thinking] [403]: HTTP 403 (reset after 2m)",
+      "ms": 22877
+    },
+    {
+      "model": "ag/claude-sonnet-4-6",
+      "ok": false,
+      "verdict": "upstream403",
+      "detail": "[antigravity/claude-sonnet-4-6] [403]: HTTP 403 (reset after 2m)",
+      "ms": 22870
+    },
+    {
+      "model": "ag/gemini-3-flash",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 25061
+    },
+    {
+      "model": "ag/gemini-3-flash-agent",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 25065
+    },
+    {
+      "model": "ag/gemini-3.1-pro-low",
+      "ok": false,
+      "verdict": "upstream403",
+      "detail": "[antigravity/gemini-3.1-pro-low] [403]: HTTP 403 (reset after 2m)",
+      "ms": 22640
+    },
+    {
+      "model": "ag/gemini-3.5-flash-extra-low",
+      "ok": false,
+      "verdict": "upstream403",
+      "detail": "[antigravity/gemini-3.5-flash-extra-low] [403]: HTTP 403 (reset after 2m)",
+      "ms": 22757
+    },
+    {
+      "model": "ag/gemini-3.5-flash-high",
+      "ok": false,
+      "verdict": "upstream403",
+      "detail": "[antigravity/gemini-3.5-flash-high] [403]: HTTP 403 (reset after 2m)",
+      "ms": 22823
+    },
+    {
+      "model": "ag/gemini-3.5-flash-low",
+      "ok": false,
+      "verdict": "upstream403",
+      "detail": "[antigravity/gemini-3.5-flash-low] [403]: HTTP 403 (reset after 2m)",
+      "ms": 22936
+    },
+    {
+      "model": "ag/gemini-3.6-flash-high",
+      "ok": false,
+      "verdict": "upstream403",
+      "detail": "[antigravity/gemini-3.6-flash-high] [403]: HTTP 403 (reset after 2m)",
+      "ms": 22738
+    },
+    {
+      "model": "ag/gemini-3.6-flash-low",
+      "ok": false,
+      "verdict": "upstream403",
+      "detail": "[antigravity/gemini-3.6-flash-low] [403]: HTTP 403 (reset after 2m)",
+      "ms": 22730
+    },
+    {
+      "model": "ag/gemini-3.6-flash-medium",
+      "ok": false,
+      "verdict": "upstream403",
+      "detail": "[antigravity/gemini-3.6-flash-medium] [403]: HTTP 403 (reset after 2m)",
+      "ms": 22739
+    },
+    {
+      "model": "ag/gemini-3.7-flash-high",
+      "ok": false,
+      "verdict": "upstream403",
+      "detail": "[antigravity/gemini-3.7-flash-high] [403]: HTTP 403 (reset after 2m)",
+      "ms": 22742
+    },
+    {
+      "model": "ag/gemini-3.7-flash-low",
+      "ok": false,
+      "verdict": "upstream403",
+      "detail": "[antigravity/gemini-3.7-flash-low] [403]: HTTP 403 (reset after 2m)",
+      "ms": 23035
+    },
+    {
+      "model": "ag/gemini-3.7-flash-medium",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 25068
+    },
+    {
+      "model": "ag/gemini-3.8-flash",
+      "ok": false,
+      "verdict": "upstream403",
+      "detail": "[antigravity/gemini-3.8-flash] [403]: HTTP 403 (reset after 2m)",
+      "ms": 22720
+    },
+    {
+      "model": "ag/gemini-3.8-flash-high",
+      "ok": false,
+      "verdict": "upstream403",
+      "detail": "[antigravity/gemini-3.8-flash-high] [403]: HTTP 403 (reset after 2m)",
+      "ms": 23004
+    },
+    {
+      "model": "ag/gemini-3.8-flash-low",
+      "ok": false,
+      "verdict": "upstream403",
+      "detail": "[antigravity/gemini-3.8-flash-low] [403]: HTTP 403 (reset after 1m 40s)",
+      "ms": 43012
+    },
+    {
+      "model": "ag/gemini-3.8-flash-medium",
+      "ok": false,
+      "verdict": "upstream403",
+      "detail": "[antigravity/gemini-3.8-flash-medium] [403]: HTTP 403 (reset after 1m 40s)",
+      "ms": 43050
+    },
+    {
+      "model": "ag/gemini-pro-agent",
+      "ok": false,
+      "verdict": "upstream403",
+      "detail": "[antigravity/gemini-pro-agent] [403]: HTTP 403 (reset after 1m 39s)",
+      "ms": 43875
+    },
+    {
+      "model": "ag/gpt-oss-120b-medium",
+      "ok": false,
+      "verdict": "upstream403",
+      "detail": "[antigravity/gpt-oss-120b-medium] [403]: HTTP 403 (reset after 1m 40s)",
+      "ms": 43403
+    },
+    {
+      "model": "anthropic/claude-3-5-sonnet-20241022",
+      "ok": false,
+      "verdict": "HTTP400",
+      "detail": "[400]: {\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billi",
+      "ms": 24542
+    },
+    {
+      "model": "anthropic/claude-opus-4-20250514",
+      "ok": false,
+      "verdict": "HTTP400",
+      "detail": "[400]: {\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billi",
+      "ms": 24537
+    },
+    {
+      "model": "anthropic/claude-sonnet-4-20250514",
+      "ok": false,
+      "verdict": "HTTP400",
+      "detail": "[400]: {\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billi",
+      "ms": 24506
+    },
+    {
+      "model": "cl/aion-labs/aion-2.0",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 47863
+    },
+    {
+      "model": "cl/aion-labs/aion-3.0",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 47929
+    },
+    {
+      "model": "cl/aion-labs/aion-3.0-mini",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 48016
+    },
+    {
+      "model": "cl/aion-labs/aion-3.5",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 48033
+    },
+    {
+      "model": "cl/aion-labs/aion-3.5-mini",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 49513
+    },
+    {
+      "model": "cl/aion-labs/aion-rp-llama-3.1-8b",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 49544
+    },
+    {
+      "model": "cl/amazon/nova-2-lite-v1",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 49548
+    },
+    {
+      "model": "cl/amazon/nova-lite-v1",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 50058
+    },
+    {
+      "model": "cl/amazon/nova-micro-v1",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 50061
+    },
+    {
+      "model": "cl/amazon/nova-premier-v1",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 50075
+    },
+    {
+      "model": "cl/amazon/nova-pro-v1",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 56095
+    },
+    {
+      "model": "cl/anthracite-org/magnum-v4-72b",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 57072
+    },
+    {
+      "model": "cl/anthropic/claude-fable-5",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 68018
+    },
+    {
+      "model": "cl/anthropic/claude-fable-5.1",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 68058
+    },
+    {
+      "model": "cl/anthropic/claude-fable-5.1:batch",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 68409
+    },
+    {
+      "model": "cl/anthropic/claude-fable-5:batch",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 68886
+    },
+    {
+      "model": "cl/anthropic/claude-haiku-4.5",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 72874
+    },
+    {
+      "model": "cl/anthropic/claude-haiku-4.5:batch",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 72942
+    },
+    {
+      "model": "cl/anthropic/claude-opus-4.1",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 73032
+    },
+    {
+      "model": "cl/anthropic/claude-opus-4.1:batch",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 73043
+    },
+    {
+      "model": "cl/anthropic/claude-opus-4.5",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 74526
+    },
+    {
+      "model": "cl/anthropic/claude-opus-4.5:batch",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 74558
+    },
+    {
+      "model": "cl/anthropic/claude-opus-4.6",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 74560
+    },
+    {
+      "model": "cl/anthropic/claude-opus-4.6:batch",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 75073
+    },
+    {
+      "model": "cl/anthropic/claude-opus-4.7",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 75073
+    },
+    {
+      "model": "cl/anthropic/claude-opus-4.7:batch",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 75085
+    },
+    {
+      "model": "cl/anthropic/claude-opus-4.8",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 81107
+    },
+    {
+      "model": "cl/anthropic/claude-opus-4.8:batch",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 82085
+    },
+    {
+      "model": "cl/anthropic/claude-opus-5",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 93036
+    },
+    {
+      "model": "cl/anthropic/claude-opus-5.5",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 93074
+    },
+    {
+      "model": "cl/anthropic/claude-opus-5.5:batch",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 93423
+    },
+    {
+      "model": "cl/anthropic/claude-opus-5:batch",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 93901
+    },
+    {
+      "model": "cl/anthropic/claude-sonnet-4",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 97884
+    },
+    {
+      "model": "cl/anthropic/claude-sonnet-4.5",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 97957
+    },
+    {
+      "model": "cl/anthropic/claude-sonnet-4.5:batch",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 98052
+    },
+    {
+      "model": "cl/anthropic/claude-sonnet-4.6",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 98056
+    },
+    {
+      "model": "cl/anthropic/claude-sonnet-4.6:batch",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 99536
+    },
+    {
+      "model": "cl/anthropic/claude-sonnet-5",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 99571
+    },
+    {
+      "model": "cl/anthropic/claude-sonnet-5.5",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 99574
+    },
+    {
+      "model": "cl/anthropic/claude-sonnet-5.5:batch",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 100088
+    },
+    {
+      "model": "cl/anthropic/claude-sonnet-5:batch",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 100088
+    },
+    {
+      "model": "cl/arcee-ai/trinity-large-thinking",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 100099
+    },
+    {
+      "model": "cl/baidu/ernie-4.5-vl-424b-a47b",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 106117
+    },
+    {
+      "model": "cl/bytedance-seed/seed-1.6",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 107097
+    },
+    {
+      "model": "cl/bytedance-seed/seed-1.6-flash",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 118054
+    },
+    {
+      "model": "cl/bytedance-seed/seed-2-1-turbo",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 118085
+    },
+    {
+      "model": "cl/bytedance-seed/seed-2.0-code",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 118434
+    },
+    {
+      "model": "cl/bytedance-seed/seed-2.0-lite",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 118919
+    },
+    {
+      "model": "cl/bytedance-seed/seed-2.0-mini",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 122902
+    },
+    {
+      "model": "cl/bytedance/ui-tars-1.5-7b",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 122977
+    },
+    {
+      "model": "cl/cline-free/deepseek-v4.1-flash",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 123069
+    },
+    {
+      "model": "cl/cline-free/mimo-v2.6-flash",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 123072
+    },
+    {
+      "model": "cl/cline-free/muse-spark-1.3-contributor",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 124547
+    },
+    {
+      "model": "cl/cognitivecomputations/dolphin-mistral-24b-venice-edition",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 124587
+    },
+    {
+      "model": "cl/cohere/command-a",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 124587
+    },
+    {
+      "model": "cl/cohere/command-a-plus",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 125110
+    },
+    {
+      "model": "cl/cohere/command-r-08-2024",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 125111
+    },
+    {
+      "model": "cl/cohere/command-r-plus-08-2024",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 125112
+    },
+    {
+      "model": "cl/cohere/command-r7b-12-2024",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 131134
+    },
+    {
+      "model": "cl/cohere/north-mini-code:free",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 132110
+    },
+    {
+      "model": "cl/deepseek/deepseek-chat",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 143073
+    },
+    {
+      "model": "cl/deepseek/deepseek-chat-v3-0324",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 143094
+    },
+    {
+      "model": "cl/deepseek/deepseek-chat-v3.1",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 143444
+    },
+    {
+      "model": "cl/deepseek/deepseek-r1",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 143933
+    },
+    {
+      "model": "cl/deepseek/deepseek-r1-0528",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 147915
+    },
+    {
+      "model": "cl/deepseek/deepseek-v3.1-terminus",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 147991
+    },
+    {
+      "model": "cl/deepseek/deepseek-v3.2",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 148086
+    },
+    {
+      "model": "cl/deepseek/deepseek-v3.2-exp",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 148089
+    },
+    {
+      "model": "cl/deepseek/deepseek-v4-flash",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 149570
+    },
+    {
+      "model": "cl/deepseek/deepseek-v4-flash-0731",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 149602
+    },
+    {
+      "model": "cl/deepseek/deepseek-v4-flash-vision-exp",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 149602
+    },
+    {
+      "model": "cl/deepseek/deepseek-v4-pro",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 150127
+    },
+    {
+      "model": "cl/deepseek/deepseek-v4-pro-0813",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 150128
+    },
+    {
+      "model": "cl/deepseek/deepseek-v4.1-flash",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 150128
+    },
+    {
+      "model": "cl/deepseek/deepseek-v4.1-flash:batch",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 156148
+    },
+    {
+      "model": "cl/dots-studio/dots-3-note-preview:free",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 157130
+    },
+    {
+      "model": "cl/fireworks/ember-1",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 168090
+    },
+    {
+      "model": "cl/google/gemini-2.5-flash",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 168104
+    },
+    {
+      "model": "cl/google/gemini-2.5-flash-image",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 168464
+    },
+    {
+      "model": "cl/google/gemini-2.5-flash-lite",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 168951
+    },
+    {
+      "model": "cl/google/gemini-2.5-flash-lite:batch",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 172934
+    },
+    {
+      "model": "cl/google/gemini-2.5-flash:batch",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 173007
+    },
+    {
+      "model": "cl/google/gemini-2.5-pro",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 173106
+    },
+    {
+      "model": "cl/google/gemini-2.5-pro-preview",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 173107
+    },
+    {
+      "model": "cl/google/gemini-2.5-pro:batch",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 174590
+    },
+    {
+      "model": "cl/google/gemini-3-flash-preview",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 174614
+    },
+    {
+      "model": "cl/google/gemini-3-flash-preview:batch",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 174615
+    },
+    {
+      "model": "cl/google/gemini-3-pro-image",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 175143
+    },
+    {
+      "model": "cl/google/gemini-3-pro-image-preview",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 175144
+    },
+    {
+      "model": "cl/google/gemini-3.1-flash-image",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 175144
+    },
+    {
+      "model": "cl/google/gemini-3.1-flash-image-preview",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 181161
+    },
+    {
+      "model": "cl/google/gemini-3.1-flash-lite",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 182145
+    },
+    {
+      "model": "cl/google/gemini-3.1-flash-lite-image",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 193111
+    },
+    {
+      "model": "cl/google/gemini-3.1-flash-lite-preview",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 193116
+    },
+    {
+      "model": "cl/google/gemini-3.1-flash-lite:batch",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 193478
+    },
+    {
+      "model": "cl/google/gemini-3.1-pro-preview",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 193967
+    },
+    {
+      "model": "cl/google/gemini-3.1-pro-preview-customtools",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 197944
+    },
+    {
+      "model": "cl/google/gemini-3.1-pro-preview:batch",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 198026
+    },
+    {
+      "model": "cl/google/gemini-3.5-flash",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 198125
+    },
+    {
+      "model": "cl/google/gemini-3.5-flash-lite",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 198126
+    },
+    {
+      "model": "cl/google/gemini-3.5-flash-lite:batch",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 199604
+    },
+    {
+      "model": "cl/google/gemini-3.5-flash:batch",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 199627
+    },
+    {
+      "model": "cl/google/gemini-3.6-flash",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 199627
+    },
+    {
+      "model": "cl/google/gemini-3.6-flash:batch",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 200165
+    },
+    {
+      "model": "cl/google/gemini-3.7-flash",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 200165
+    },
+    {
+      "model": "cl/google/gemini-3.7-flash:batch",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 200166
+    },
+    {
+      "model": "cl/google/gemini-3.8-flash",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 206180
+    },
+    {
+      "model": "cl/google/gemini-3.8-flash:batch",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 207164
+    },
+    {
+      "model": "cl/google/gemma-2-27b-it",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 218126
+    },
+    {
+      "model": "cl/google/gemma-3-12b-it",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 218128
+    },
+    {
+      "model": "cl/google/gemma-3-27b-it",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 218490
+    },
+    {
+      "model": "cl/google/gemma-3-4b-it",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 218990
+    },
+    {
+      "model": "cl/google/gemma-4-26b-a4b-it",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 222961
+    },
+    {
+      "model": "cl/google/gemma-4-26b-a4b-it:free",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 223035
+    },
+    {
+      "model": "cl/google/gemma-4-31b-it",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 223140
+    },
+    {
+      "model": "cl/google/gemma-4-31b-it:free",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 223140
+    },
+    {
+      "model": "cl/google/lyria-3-clip-preview",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 224624
+    },
+    {
+      "model": "cl/google/lyria-3-pro-preview",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 224638
+    },
+    {
+      "model": "cl/gryphe/mythomax-l2-13b",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 224638
+    },
+    {
+      "model": "cl/ibm-granite/granite-4.0-h-micro",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 225186
+    },
+    {
+      "model": "cl/ibm-granite/granite-4.2-8b",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 225187
+    },
+    {
+      "model": "cl/inception/mercury-2",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 225191
+    },
+    {
+      "model": "cl/inception/mercury-2.5",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 231203
+    },
+    {
+      "model": "cl/inclusionai/ling-3.0-flash",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 232179
+    },
+    {
+      "model": "cl/inclusionai/ling-3.0-flash-fin",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 243141
+    },
+    {
+      "model": "cl/inclusionai/ling-3.0-flash-sante:free",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 243142
+    },
+    {
+      "model": "cl/inclusionai/ling-3.0-flash-vl",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 243500
+    },
+    {
+      "model": "cl/inference-net/schematron-v2-small",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 244003
+    },
+    {
+      "model": "cl/inference-net/schematron-v2-turbo",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 247974
+    },
+    {
+      "model": "cl/kwaipilot/kat-coder-pro-v2.5",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 248050
+    },
+    {
+      "model": "cl/liquid/lfm-2.5-2.6b:free",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 248152
+    },
+    {
+      "model": "cl/mancer/weaver",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 248153
+    },
+    {
+      "model": "cl/meituan/longcat-2.0",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 249640
+    },
+    {
+      "model": "cl/meta-llama/llama-3.1-70b-instruct",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 249652
+    },
+    {
+      "model": "cl/meta-llama/llama-3.1-8b-instruct",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 249652
+    },
+    {
+      "model": "cl/meta-llama/llama-3.2-1b-instruct",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 250208
+    },
+    {
+      "model": "cl/meta-llama/llama-3.2-3b-instruct",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 250208
+    },
+    {
+      "model": "cl/meta-llama/llama-3.3-70b-instruct",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 250209
+    },
+    {
+      "model": "cl/meta-llama/llama-4-maverick",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 256219
+    },
+    {
+      "model": "cl/meta-llama/llama-4-scout",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 257192
+    },
+    {
+      "model": "cl/meta-llama/llama-guard-4-12b",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 268174
+    },
+    {
+      "model": "cl/meta/muse-glimmer-30b",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 268175
+    },
+    {
+      "model": "cl/meta/muse-spark-1.1",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 268512
+    },
+    {
+      "model": "cl/meta/muse-spark-1.2",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 269016
+    },
+    {
+      "model": "cl/meta/muse-spark-1.2-contributor",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 272989
+    },
+    {
+      "model": "cl/meta/muse-spark-1.3",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 273084
+    },
+    {
+      "model": "cl/meta/muse-spark-1.3-contributor",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 273169
+    },
+    {
+      "model": "cl/microsoft/phi-4",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 273170
+    },
+    {
+      "model": "cl/microsoft/wizardlm-2-8x22b",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 274649
+    },
+    {
+      "model": "cl/minimax/minimax-01",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 274662
+    },
+    {
+      "model": "cl/minimax/minimax-m1",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 274663
+    },
+    {
+      "model": "cl/minimax/minimax-m2",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 275226
+    },
+    {
+      "model": "cl/minimax/minimax-m2-her",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 275226
+    },
+    {
+      "model": "cl/minimax/minimax-m2.1",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 275230
+    },
+    {
+      "model": "cl/minimax/minimax-m2.5",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 281234
+    },
+    {
+      "model": "cl/minimax/minimax-m2.7",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 282216
+    },
+    {
+      "model": "cl/minimax/minimax-m3",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 293205
+    },
+    {
+      "model": "cl/mistralai/codestral-2508",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 293205
+    },
+    {
+      "model": "cl/mistralai/codestral-2508:batch",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 293525
+    },
+    {
+      "model": "cl/mistralai/devstral-2512",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 294030
+    },
+    {
+      "model": "cl/mistralai/ministral-14b-2512",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 298007
+    },
+    {
+      "model": "cl/mistralai/ministral-3b-2512",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 298138
+    },
+    {
+      "model": "cl/mistralai/ministral-8b-2512",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 298196
+    },
+    {
+      "model": "cl/mistralai/ministral-8b-2512:batch",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 298196
+    },
+    {
+      "model": "cl/mistralai/mistral-large",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 299664
+    },
+    {
+      "model": "cl/mistralai/mistral-large-2407",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 299760
+    },
+    {
+      "model": "cl/mistralai/mistral-large-2512",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 299760
+    },
+    {
+      "model": "cl/mistralai/mistral-large-2512:batch",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 300254
+    },
+    {
+      "model": "cl/mistralai/mistral-medium-3",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 300255
+    },
+    {
+      "model": "cl/mistralai/mistral-medium-3-5",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 300255
+    },
+    {
+      "model": "cl/mistralai/mistral-medium-3-5:batch",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 306244
+    },
+    {
+      "model": "cl/mistralai/mistral-medium-3.1",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 307225
+    },
+    {
+      "model": "cl/mistralai/mistral-medium-3.1:batch",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 318218
+    },
+    {
+      "model": "cl/mistralai/mistral-nemo",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 318218
+    },
+    {
+      "model": "cl/mistralai/mistral-saba",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 318540
+    },
+    {
+      "model": "cl/mistralai/mistral-small-24b-instruct-2501",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 319041
+    },
+    {
+      "model": "cl/mistralai/mistral-small-2603",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 323022
+    },
+    {
+      "model": "cl/mistralai/mistral-small-2603:batch",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 323148
+    },
+    {
+      "model": "cl/mistralai/mistral-small-3.1-24b-instruct",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 323210
+    },
+    {
+      "model": "cl/mistralai/mistral-small-3.2-24b-instruct",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 323212
+    },
+    {
+      "model": "cl/mistralai/mixtral-8x22b-instruct",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 324676
+    },
+    {
+      "model": "cl/mistralai/voxtral-small-24b-2507",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 324774
+    },
+    {
+      "model": "cl/moonshotai/kimi-k2",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 324775
+    },
+    {
+      "model": "cl/moonshotai/kimi-k2-0905",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 325271
+    },
+    {
+      "model": "cl/moonshotai/kimi-k2-thinking",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 325272
+    },
+    {
+      "model": "cl/moonshotai/kimi-k2.5",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 325273
+    },
+    {
+      "model": "cl/moonshotai/kimi-k2.6",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 331253
+    },
+    {
+      "model": "cl/moonshotai/kimi-k2.7-code",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 332236
+    },
+    {
+      "model": "cl/moonshotai/kimi-k3",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 343237
+    },
+    {
+      "model": "cl/moonshotai/kimi-k3:batch",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 343237
+    },
+    {
+      "model": "cl/morph/morph-v3-fast",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 343548
+    },
+    {
+      "model": "cl/morph/morph-v3-large",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 344055
+    },
+    {
+      "model": "cl/nex-agi/nex-n2.5-mini",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 348036
+    },
+    {
+      "model": "cl/nex-agi/nex-n2.5-pro",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 348158
+    },
+    {
+      "model": "cl/nousresearch/hermes-3-llama-3.1-405b",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 348228
+    },
+    {
+      "model": "cl/nousresearch/hermes-3-llama-3.1-70b",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 348229
+    },
+    {
+      "model": "cl/nousresearch/hermes-4-405b",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 349693
+    },
+    {
+      "model": "cl/nvidia/nemotron-3-nano-30b-a3b",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 349787
+    },
+    {
+      "model": "cl/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 349789
+    },
+    {
+      "model": "cl/nvidia/nemotron-3-super-120b-a12b",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 350293
+    },
+    {
+      "model": "cl/nvidia/nemotron-3-super-120b-a12b:free",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 350293
+    },
+    {
+      "model": "cl/nvidia/nemotron-3-ultra-550b-a55b",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 350295
+    },
+    {
+      "model": "cl/nvidia/nemotron-3-ultra-550b-a55b:free",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 356262
+    },
+    {
+      "model": "cl/nvidia/nemotron-3.5-content-safety",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 357246
+    },
+    {
+      "model": "cl/nvidia/nemotron-3.5-content-safety:free",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 368249
+    },
+    {
+      "model": "cl/nvidia/nemotron-3.5-lightning",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 368250
+    },
+    {
+      "model": "cl/nvidia/nemotron-3.5-lightning:free",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 368559
+    },
+    {
+      "model": "cl/openai/gpt-3.5-turbo",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 369071
+    },
+    {
+      "model": "cl/openai/gpt-3.5-turbo-0613",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 373050
+    },
+    {
+      "model": "cl/openai/gpt-3.5-turbo-16k",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 373171
+    },
+    {
+      "model": "cl/openai/gpt-3.5-turbo-instruct",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 373244
+    },
+    {
+      "model": "cl/openai/gpt-3.5-turbo:batch",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 373244
+    },
+    {
+      "model": "cl/openai/gpt-4",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 374710
+    },
+    {
+      "model": "cl/openai/gpt-4-turbo",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 374811
+    },
+    {
+      "model": "cl/openai/gpt-4-turbo:batch",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 374811
+    },
+    {
+      "model": "cl/openai/gpt-4.1",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 375312
+    },
+    {
+      "model": "cl/openai/gpt-4.1-mini",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 375312
+    },
+    {
+      "model": "cl/openai/gpt-4.1-mini:batch",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 375315
+    },
+    {
+      "model": "cl/openai/gpt-4.1-nano",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 381274
+    },
+    {
+      "model": "cl/openai/gpt-4.1-nano:batch",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 382258
+    },
+    {
+      "model": "cl/openai/gpt-4.1:batch",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 393266
+    },
+    {
+      "model": "cl/openai/gpt-4o",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 393267
+    },
+    {
+      "model": "cl/openai/gpt-4o-2024-05-13",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 393570
+    },
+    {
+      "model": "cl/openai/gpt-4o-2024-08-06",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 394082
+    },
+    {
+      "model": "cl/openai/gpt-4o-2024-11-20",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 398066
+    },
+    {
+      "model": "cl/openai/gpt-4o-mini",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 398185
+    },
+    {
+      "model": "cl/openai/gpt-4o-mini-2024-07-18",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 398254
+    },
+    {
+      "model": "cl/openai/gpt-4o-mini:batch",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 398255
+    },
+    {
+      "model": "cl/openai/gpt-4o:batch",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 399717
+    },
+    {
+      "model": "cl/openai/gpt-5",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 399827
+    },
+    {
+      "model": "cl/openai/gpt-5-image",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 399827
+    },
+    {
+      "model": "cl/openai/gpt-5-image-mini",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 400333
+    },
+    {
+      "model": "cl/openai/gpt-5-mini",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 400335
+    },
+    {
+      "model": "cl/openai/gpt-5-mini:batch",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 400341
+    },
+    {
+      "model": "cl/openai/gpt-5-nano",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 406285
+    },
+    {
+      "model": "cl/openai/gpt-5-nano:batch",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 407274
+    },
+    {
+      "model": "cl/openai/gpt-5-pro",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 418286
+    },
+    {
+      "model": "cl/openai/gpt-5-pro:batch",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 418287
+    },
+    {
+      "model": "cl/openai/gpt-5.1",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 418583
+    },
+    {
+      "model": "cl/openai/gpt-5.1-codex",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 419096
+    },
+    {
+      "model": "cl/openai/gpt-5.1-codex-max",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 423083
+    },
+    {
+      "model": "cl/openai/gpt-5.1-codex-mini",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 423198
+    },
+    {
+      "model": "cl/openai/gpt-5.1:batch",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 423267
+    },
+    {
+      "model": "cl/openai/gpt-5.2",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 423268
+    },
+    {
+      "model": "cl/openai/gpt-5.2-chat",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 424731
+    },
+    {
+      "model": "cl/openai/gpt-5.2-codex",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 424841
+    },
+    {
+      "model": "cl/openai/gpt-5.2-pro",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 424842
+    },
+    {
+      "model": "cl/openai/gpt-5.2-pro:batch",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 425346
+    },
+    {
+      "model": "cl/openai/gpt-5.2:batch",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 425349
+    },
+    {
+      "model": "cl/openai/gpt-5.3-codex",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 425354
+    },
+    {
+      "model": "cl/openai/gpt-5.4",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 431297
+    },
+    {
+      "model": "cl/openai/gpt-5.4-image-2",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 432288
+    },
+    {
+      "model": "cl/openai/gpt-5.4-mini",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 443301
+    },
+    {
+      "model": "cl/openai/gpt-5.4-mini:batch",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 443302
+    },
+    {
+      "model": "cl/openai/gpt-5.4-nano",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 443596
+    },
+    {
+      "model": "cl/openai/gpt-5.4-nano:batch",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 444106
+    },
+    {
+      "model": "cl/openai/gpt-5.4-pro",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 448094
+    },
+    {
+      "model": "cl/openai/gpt-5.4-pro:batch",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 448209
+    },
+    {
+      "model": "cl/openai/gpt-5.4:batch",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 448281
+    },
+    {
+      "model": "cl/openai/gpt-5.5",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 448281
+    },
+    {
+      "model": "cl/openai/gpt-5.5-pro",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 449748
+    },
+    {
+      "model": "cl/openai/gpt-5.5-pro:batch",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 449856
+    },
+    {
+      "model": "cl/openai/gpt-5.5:batch",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 449856
+    },
+    {
+      "model": "cl/openai/gpt-5.6-luna",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 450366
+    },
+    {
+      "model": "cl/openai/gpt-5.6-luna-pro",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 450366
+    },
+    {
+      "model": "cl/openai/gpt-5.6-luna-pro:batch",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 450368
+    },
+    {
+      "model": "cl/openai/gpt-5.6-luna:batch",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 456307
+    },
+    {
+      "model": "cl/openai/gpt-5.6-sol",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 457298
+    },
+    {
+      "model": "cl/openai/gpt-5.6-sol-pro",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 468314
+    },
+    {
+      "model": "cl/openai/gpt-5.6-sol-pro:batch",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 468315
+    },
+    {
+      "model": "cl/openai/gpt-5.6-sol:batch",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 468608
+    },
+    {
+      "model": "cl/openai/gpt-5.6-terra",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 469117
+    },
+    {
+      "model": "cl/openai/gpt-5.6-terra-pro",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 473104
+    },
+    {
+      "model": "cl/openai/gpt-5.6-terra-pro:batch",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 473221
+    },
+    {
+      "model": "cl/openai/gpt-5.6-terra:batch",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 473297
+    },
+    {
+      "model": "cl/openai/gpt-5:batch",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 473298
+    },
+    {
+      "model": "cl/openai/gpt-6-astra",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 474759
+    },
+    {
+      "model": "cl/openai/gpt-6-astra-pro",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 474872
+    },
+    {
+      "model": "cl/openai/gpt-6-astra-pro:batch",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 474873
+    },
+    {
+      "model": "cl/openai/gpt-6-astra:batch",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 475383
+    },
+    {
+      "model": "cl/openai/gpt-6-luna",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 475383
+    },
+    {
+      "model": "cl/openai/gpt-6-luna-pro",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 475386
+    },
+    {
+      "model": "cl/openai/gpt-6-luna-pro:batch",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 481322
+    },
+    {
+      "model": "cl/openai/gpt-6-luna:batch",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 482311
+    },
+    {
+      "model": "cl/openai/gpt-6-sol",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 493335
+    },
+    {
+      "model": "cl/openai/gpt-6-sol-pro",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 493336
+    },
+    {
+      "model": "cl/openai/gpt-6-sol-pro:batch",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 493620
+    },
+    {
+      "model": "cl/openai/gpt-6-sol:batch",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 494130
+    },
+    {
+      "model": "cl/openai/gpt-6.1-sol",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 498116
+    },
+    {
+      "model": "cl/openai/gpt-6.1-sol-pro",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 498233
+    },
+    {
+      "model": "cl/openai/gpt-6.1-sol-pro:batch",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 498314
+    },
+    {
+      "model": "cl/openai/gpt-6.1-sol:batch",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 498315
+    },
+    {
+      "model": "cl/openai/gpt-audio",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 499772
+    },
+    {
+      "model": "cl/openai/gpt-audio-mini",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 499890
+    },
+    {
+      "model": "cl/openai/gpt-chat-latest",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 499890
+    },
+    {
+      "model": "cl/openai/gpt-oss-120b",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 500401
+    },
+    {
+      "model": "cl/openai/gpt-oss-120b:batch",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 500403
+    },
+    {
+      "model": "cl/openai/gpt-oss-20b",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 500406
+    },
+    {
+      "model": "cl/openai/gpt-oss-20b:batch",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 506335
+    },
+    {
+      "model": "cl/openai/gpt-oss-safeguard-20b",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 507325
+    },
+    {
+      "model": "cl/openai/o1",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 518350
+    },
+    {
+      "model": "cl/openai/o1-pro",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 518351
+    },
+    {
+      "model": "cl/openai/o3",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 518632
+    },
+    {
+      "model": "cl/openai/o3-mini",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 519147
+    },
+    {
+      "model": "cl/openai/o3-mini-high",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 523128
+    },
+    {
+      "model": "cl/openai/o3-mini:batch",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 523294
+    },
+    {
+      "model": "cl/openai/o3-pro",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 523327
+    },
+    {
+      "model": "cl/openai/o3:batch",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 523328
+    },
+    {
+      "model": "cl/openai/o4-mini",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 524783
+    },
+    {
+      "model": "cl/openai/o4-mini-high",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 524904
+    },
+    {
+      "model": "cl/openai/o4-mini:batch",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 524904
+    },
+    {
+      "model": "cl/openrouter/auto",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 525421
+    },
+    {
+      "model": "cl/openrouter/auto-beta",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 525422
+    },
+    {
+      "model": "cl/openrouter/bodybuilder",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 525423
+    },
+    {
+      "model": "cl/openrouter/free",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 531356
+    },
+    {
+      "model": "cl/openrouter/fusion",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 532337
+    },
+    {
+      "model": "cl/openrouter/pareto-code",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 543369
+    },
+    {
+      "model": "cl/perceptron/perceptron-mk1",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 543370
+    },
+    {
+      "model": "cl/perceptron/perceptron-mk1.5",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 543642
+    },
+    {
+      "model": "cl/perplexity/sonar",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 544164
+    },
+    {
+      "model": "cl/perplexity/sonar-deep-research",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 548141
+    },
+    {
+      "model": "cl/perplexity/sonar-pro",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 548303
+    },
+    {
+      "model": "cl/perplexity/sonar-pro-search",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 548343
+    },
+    {
+      "model": "cl/perplexity/sonar-reasoning-pro",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 548344
+    },
+    {
+      "model": "cl/poolside/laguna-s-2.1",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 549794
+    },
+    {
+      "model": "cl/poolside/laguna-s-2.1:free",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 549922
+    },
+    {
+      "model": "cl/poolside/laguna-xs-2.1",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 549925
+    },
+    {
+      "model": "cl/poolside/laguna-xs-2.1:free",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 550444
+    },
+    {
+      "model": "cl/prism-ml/ternary-bonsai-2-27b",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 550446
+    },
+    {
+      "model": "cl/qwen/qwen-2.5-72b-instruct",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 550447
+    },
+    {
+      "model": "cl/qwen/qwen-2.5-7b-instruct",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 556367
+    },
+    {
+      "model": "cl/qwen/qwen-2.5-coder-32b-instruct",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 557347
+    },
+    {
+      "model": "cl/qwen/qwen-plus",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 568383
+    },
+    {
+      "model": "cl/qwen/qwen-plus-2025-07-28",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 568383
+    },
+    {
+      "model": "cl/qwen/qwen2.5-vl-72b-instruct",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 568653
+    },
+    {
+      "model": "cl/qwen/qwen3-14b",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 569175
+    },
+    {
+      "model": "cl/qwen/qwen3-235b-a22b",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 573152
+    },
+    {
+      "model": "cl/qwen/qwen3-235b-a22b-2507",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 573315
+    },
+    {
+      "model": "cl/qwen/qwen3-235b-a22b-thinking-2507",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 573358
+    },
+    {
+      "model": "cl/qwen/qwen3-30b-a3b",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 573359
+    },
+    {
+      "model": "cl/qwen/qwen3-30b-a3b-instruct-2507",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 574805
+    },
+    {
+      "model": "cl/qwen/qwen3-30b-a3b-thinking-2507",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 574939
+    },
+    {
+      "model": "cl/qwen/qwen3-32b",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 574942
+    },
+    {
+      "model": "cl/qwen/qwen3-8b",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 575460
+    },
+    {
+      "model": "cl/qwen/qwen3-coder",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 575464
+    },
+    {
+      "model": "cl/qwen/qwen3-coder-30b-a3b-instruct",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 575466
+    },
+    {
+      "model": "cl/qwen/qwen3-coder-flash",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 581380
+    },
+    {
+      "model": "cl/qwen/qwen3-coder-next",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 582358
+    },
+    {
+      "model": "cl/qwen/qwen3-coder-plus",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 593400
+    },
+    {
+      "model": "cl/qwen/qwen3-max",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 593401
+    },
+    {
+      "model": "cl/qwen/qwen3-max-thinking",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 593664
+    },
+    {
+      "model": "cl/qwen/qwen3-next-80b-a3b-instruct",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 594189
+    },
+    {
+      "model": "cl/qwen/qwen3-next-80b-a3b-thinking",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 598167
+    },
+    {
+      "model": "cl/qwen/qwen3-vl-235b-a22b-instruct",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 598328
+    },
+    {
+      "model": "cl/qwen/qwen3-vl-235b-a22b-thinking",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 598371
+    },
+    {
+      "model": "cl/qwen/qwen3-vl-30b-a3b-instruct",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 598371
+    },
+    {
+      "model": "cl/qwen/qwen3-vl-30b-a3b-thinking",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 599816
+    },
+    {
+      "model": "cl/qwen/qwen3-vl-32b-instruct",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 599954
+    },
+    {
+      "model": "cl/qwen/qwen3-vl-8b-instruct",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 599957
+    },
+    {
+      "model": "cl/qwen/qwen3-vl-8b-thinking",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 600481
+    },
+    {
+      "model": "cl/qwen/qwen3.5-122b-a10b",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 600481
+    },
+    {
+      "model": "cl/qwen/qwen3.5-27b",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 600483
+    },
+    {
+      "model": "cl/qwen/qwen3.5-35b-a3b",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 606396
+    },
+    {
+      "model": "cl/qwen/qwen3.5-397b-a17b",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 607370
+    },
+    {
+      "model": "cl/qwen/qwen3.5-9b",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 618413
+    },
+    {
+      "model": "cl/qwen/qwen3.5-flash-02-23",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 618413
+    },
+    {
+      "model": "cl/qwen/qwen3.5-plus-02-15",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 618676
+    },
+    {
+      "model": "cl/qwen/qwen3.5-plus-20260420",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 619198
+    },
+    {
+      "model": "cl/qwen/qwen3.6-27b",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 623182
+    },
+    {
+      "model": "cl/qwen/qwen3.6-35b-a3b",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 623343
+    },
+    {
+      "model": "cl/qwen/qwen3.6-flash",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 623386
+    },
+    {
+      "model": "cl/qwen/qwen3.6-max-preview",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 623387
+    },
+    {
+      "model": "cl/qwen/qwen3.6-plus",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 624834
+    },
+    {
+      "model": "cl/qwen/qwen3.7-flash",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 624969
+    },
+    {
+      "model": "cl/qwen/qwen3.7-max",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 624971
+    },
+    {
+      "model": "cl/qwen/qwen3.7-plus",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 625500
+    },
+    {
+      "model": "cl/qwen/qwen3.8-2.4t-a95b",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 625501
+    },
+    {
+      "model": "cl/qwen/qwen3.8-27b",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 625503
+    },
+    {
+      "model": "cl/qwen/qwen3.8-27b:free",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 631409
+    },
+    {
+      "model": "cl/qwen/qwen3.8-flash",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 632381
+    },
+    {
+      "model": "cl/qwen/qwen3.8-max-0902",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 643427
+    },
+    {
+      "model": "cl/qwen/qwen3.8-max-prime",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 643427
+    },
+    {
+      "model": "cl/qwen/qwen3.8-omni-flash",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 643688
+    },
+    {
+      "model": "cl/rekaai/reka-edge",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 644207
+    },
+    {
+      "model": "cl/rekaai/reka-flash-3",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 648201
+    },
+    {
+      "model": "cl/relace/relace-apply-3",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 648352
+    },
+    {
+      "model": "cl/relace/relace-search",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 648406
+    },
+    {
+      "model": "cl/sakana/fugu-max",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 648406
+    },
+    {
+      "model": "cl/sakana/fugu-ultra",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 649848
+    },
+    {
+      "model": "cl/sakana/fugu-ultra-v2",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 649988
+    },
+    {
+      "model": "cl/sakana/sakana-namazu",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 649988
+    },
+    {
+      "model": "cl/sao10k/l3-lunaris-8b",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 650518
+    },
+    {
+      "model": "cl/sao10k/l3.1-euryale-70b",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 650518
+    },
+    {
+      "model": "cl/sao10k/l3.3-euryale-70b",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 650519
+    },
+    {
+      "model": "cl/stealth/pixel-canary",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 656417
+    },
+    {
+      "model": "cl/stealth/space-bunny-alpha",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 657393
+    },
+    {
+      "model": "cl/stepfun/step-3.5-flash",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 668444
+    },
+    {
+      "model": "cl/stepfun/step-3.7-flash",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 668444
+    },
+    {
+      "model": "cl/tencent/hunyuan-a13b-instruct",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 668700
+    },
+    {
+      "model": "cl/tencent/hy-mt2-1.8b",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 669222
+    },
+    {
+      "model": "cl/tencent/hy-mt2-30b-a3b",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 673214
+    },
+    {
+      "model": "cl/tencent/hy-mt2-7b",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 673363
+    },
+    {
+      "model": "cl/tencent/hy3",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 673421
+    },
+    {
+      "model": "cl/tencent/hy3-preview",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 673423
+    },
+    {
+      "model": "cl/tencent/hy4-preview",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 674860
+    },
+    {
+      "model": "cl/thedrummer/cydonia-24b-v4.1",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 675006
+    },
+    {
+      "model": "cl/thedrummer/skyfall-36b-v2",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 675007
+    },
+    {
+      "model": "cl/thedrummer/unslopnemo-12b",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 675537
+    },
+    {
+      "model": "cl/thinkingmachines/inkling",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 675539
+    },
+    {
+      "model": "cl/thinkingmachines/inkling-small",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 675539
+    },
+    {
+      "model": "cl/thinkingmachines/inkling-small:free",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 681430
+    },
+    {
+      "model": "cl/thinkingmachines/inkling:free",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 682406
+    },
+    {
+      "model": "cl/typesafe/jev-router",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 693461
+    },
+    {
+      "model": "cl/unbiased/pareto",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 693463
+    },
+    {
+      "model": "cl/undi95/remm-slerp-l2-13b",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 693710
+    },
+    {
+      "model": "cl/upstage/solar-mini4",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 694233
+    },
+    {
+      "model": "cl/upstage/solar-pro-3",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 698225
+    },
+    {
+      "model": "cl/upstage/solar-pro4",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 698376
+    },
+    {
+      "model": "cl/writer/palmyra-x5",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 698436
+    },
+    {
+      "model": "cl/x-ai/grok-4.20",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 698437
+    },
+    {
+      "model": "cl/x-ai/grok-4.20-multi-agent",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 699868
+    },
+    {
+      "model": "cl/x-ai/grok-4.3",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 700020
+    },
+    {
+      "model": "cl/x-ai/grok-4.3:batch",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 700021
+    },
+    {
+      "model": "cl/x-ai/grok-4.5",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 700551
+    },
+    {
+      "model": "cl/x-ai/grok-4.6",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 700553
+    },
+    {
+      "model": "cl/x-ai/grok-4.7",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 700556
+    },
+    {
+      "model": "cl/x-ai/grok-build-0.1",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 706446
+    },
+    {
+      "model": "cl/xiaomi/mimo-v2.5",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 707416
+    },
+    {
+      "model": "cl/xiaomi/mimo-v2.5-pro",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 718482
+    },
+    {
+      "model": "cl/xiaomi/mimo-v2.6-flash",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 718483
+    },
+    {
+      "model": "cl/xiaomi/mimo-v2.6-pro",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 718721
+    },
+    {
+      "model": "cl/xiaomi/mimo-v2.6-pro-ultraspeed",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 719246
+    },
+    {
+      "model": "cl/z-ai/glm-4.5",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 723235
+    },
+    {
+      "model": "cl/z-ai/glm-4.5-air",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 723387
+    },
+    {
+      "model": "cl/z-ai/glm-4.5v",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 723448
+    },
+    {
+      "model": "cl/z-ai/glm-4.6",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 723449
+    },
+    {
+      "model": "cl/z-ai/glm-4.6v",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 724878
+    },
+    {
+      "model": "cl/z-ai/glm-4.7",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 725036
+    },
+    {
+      "model": "cl/z-ai/glm-4.7-flash",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 725037
+    },
+    {
+      "model": "cl/z-ai/glm-5",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 725570
+    },
+    {
+      "model": "cl/z-ai/glm-5-turbo",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 725574
+    },
+    {
+      "model": "cl/z-ai/glm-5.1",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 725576
+    },
+    {
+      "model": "cl/z-ai/glm-5.2",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 731455
+    },
+    {
+      "model": "cl/z-ai/glm-5.3",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 732429
+    },
+    {
+      "model": "cl/z-ai/glm-5.3-flash",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 743496
+    },
+    {
+      "model": "cl/z-ai/glm-5.3-flash:batch",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 743497
+    },
+    {
+      "model": "cl/z-ai/glm-5.3-flashx",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 743729
+    },
+    {
+      "model": "cl/z-ai/glm-5.3-prime",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 744257
+    },
+    {
+      "model": "cl/z-ai/glm-5.3:batch",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 748249
+    },
+    {
+      "model": "cl/z-ai/glm-5v-turbo",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 748400
+    },
+    {
+      "model": "cl/~anthropic/claude-fable-latest",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 748465
+    },
+    {
+      "model": "cl/~anthropic/claude-haiku-latest",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 748466
+    },
+    {
+      "model": "cl/~anthropic/claude-opus-latest",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 749890
+    },
+    {
+      "model": "cl/~anthropic/claude-sonnet-latest",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 750052
+    },
+    {
+      "model": "cl/~deepseek/deepseek-flash-latest",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 750053
+    },
+    {
+      "model": "cl/~deepseek/deepseek-pro-latest",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 750593
+    },
+    {
+      "model": "cl/~deepseek/deepseek-v4-flash-latest",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 750594
+    },
+    {
+      "model": "cl/~google/gemini-flash-latest",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 750597
+    },
+    {
+      "model": "cl/~google/gemini-pro-latest",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 756468
+    },
+    {
+      "model": "cl/~moonshotai/kimi-latest",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 757439
+    },
+    {
+      "model": "cl/~openai/gpt-astra-latest",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 768509
+    },
+    {
+      "model": "cl/~openai/gpt-luna-latest",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 768510
+    },
+    {
+      "model": "cl/~openai/gpt-mini-latest",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 768744
+    },
+    {
+      "model": "cl/~openai/gpt-sol-latest",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 769270
+    },
+    {
+      "model": "cl/~openai/gpt-terra-latest",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 773260
+    },
+    {
+      "model": "cl/~x-ai/grok-latest",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 773409
+    },
+    {
+      "model": "cl/~z-ai/glm-flash-latest",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 773487
+    },
+    {
+      "model": "cl/~z-ai/glm-latest",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 773488
+    },
+    {
+      "model": "clinepass/cline-pass/deepseek-v4-flash",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 774903
+    },
+    {
+      "model": "clinepass/cline-pass/deepseek-v4-pro",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 775069
+    },
+    {
+      "model": "clinepass/cline-pass/glm-5.2",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 775069
+    },
+    {
+      "model": "clinepass/cline-pass/kimi-k2.6",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 775616
+    },
+    {
+      "model": "clinepass/cline-pass/kimi-k2.7-code",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 775617
+    },
+    {
+      "model": "clinepass/cline-pass/mimo-v2.5",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 775618
+    },
+    {
+      "model": "clinepass/cline-pass/mimo-v2.5-pro",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 781480
+    },
+    {
+      "model": "clinepass/cline-pass/minimax-m3",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 782448
+    },
+    {
+      "model": "clinepass/cline-pass/qwen3.7-max",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 793525
+    },
+    {
+      "model": "clinepass/cline-pass/qwen3.7-plus",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 793525
+    },
+    {
+      "model": "gc/gemini-2.5-flash",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 793757
+    },
+    {
+      "model": "gc/gemini-2.5-flash-lite",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 794284
+    },
+    {
+      "model": "gc/gemini-2.5-pro",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 798275
+    },
+    {
+      "model": "gc/gemini-3-flash-preview",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 798418
+    },
+    {
+      "model": "gc/gemini-3-pro-preview",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 798506
+    },
+    {
+      "model": "gc/gemini-3.1-flash-lite-preview",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 798506
+    },
+    {
+      "model": "gc/gemini-3.1-pro-preview",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 799911
+    },
+    {
+      "model": "gemini/gemini-3-flash-preview",
+      "ok": false,
+      "verdict": "badjson",
+      "detail": "Expecting value: line 1 column 1 (char 0)",
+      "ms": 778163
+    },
+    {
+      "model": "gemini/gemini-3.1-flash-lite-preview",
+      "ok": false,
+      "verdict": "badjson",
+      "detail": "Expecting value: line 1 column 1 (char 0)",
+      "ms": 778345
+    },
+    {
+      "model": "gemini/gemini-3.1-pro-preview",
+      "ok": false,
+      "verdict": "upstream429",
+      "detail": "[gemini/gemini-3.1-pro-preview] [429]: {\n  \"error\": {\n    \"code\": 429,\n    \"message\": \"You exceeded your current quota, please check your plan and billing detai",
+      "ms": 777586
+    },
+    {
+      "model": "gemini/gemini-3.5-flash-lite",
+      "ok": false,
+      "verdict": "badjson",
+      "detail": "Expecting value: line 1 column 1 (char 0)",
+      "ms": 778969
+    },
+    {
+      "model": "gemini/gemini-3.6-flash",
+      "ok": false,
+      "verdict": "badjson",
+      "detail": "Expecting value: line 1 column 1 (char 0)",
+      "ms": 780147
+    },
+    {
+      "model": "gemini/gemini-3.7-flash",
+      "ok": false,
+      "verdict": "badjson",
+      "detail": "Expecting value: line 1 column 1 (char 0)",
+      "ms": 783373
+    },
+    {
+      "model": "gemini/gemini-3.8-flash",
+      "ok": false,
+      "verdict": "badjson",
+      "detail": "Expecting value: line 1 column 1 (char 0)",
+      "ms": 793184
+    },
+    {
+      "model": "gemini/gemma-4-31b-it",
+      "ok": false,
+      "verdict": "upstream500",
+      "detail": "[gemini/gemma-4-31b-it] [500]: {\n  \"error\": {\n    \"code\": 500,\n    \"message\": \"Internal error encountered.\",\n    \"status\": \"INTERNAL\"\n  }\n}\n (reset after 30s)",
+      "ms": 786296
+    },
+    {
+      "model": "gh/claude-haiku-4.5",
+      "ok": false,
+      "verdict": "upstream401",
+      "detail": "[github/claude-haiku-4.5] [401]: IDE token expired: unauthorized: token expired\n (reset after 2m)",
+      "ms": 787246
+    },
+    {
+      "model": "gh/claude-opus-4.5",
+      "ok": false,
+      "verdict": "upstream401",
+      "detail": "[github/claude-opus-4.5] [401]: IDE token expired: unauthorized: token expired\n (reset after 2m)",
+      "ms": 787230
+    },
+    {
+      "model": "gh/claude-opus-4.6",
+      "ok": false,
+      "verdict": "upstream401",
+      "detail": "[github/claude-opus-4.6] [401]: IDE token expired: unauthorized: token expired\n (reset after 2m)",
+      "ms": 787238
+    },
+    {
+      "model": "gh/claude-opus-4.7",
+      "ok": false,
+      "verdict": "upstream401",
+      "detail": "[github/claude-opus-4.7] [401]: IDE token expired: unauthorized: token expired\n (reset after 1m 59s)",
+      "ms": 788298
+    },
+    {
+      "model": "gh/claude-sonnet-4.5",
+      "ok": false,
+      "verdict": "upstream401",
+      "detail": "[github/claude-sonnet-4.5] [401]: IDE token expired: unauthorized: token expired\n (reset after 1m 58s)",
+      "ms": 790165
+    },
+    {
+      "model": "gh/claude-sonnet-4.6",
+      "ok": false,
+      "verdict": "upstream401",
+      "detail": "[github/claude-sonnet-4.6] [401]: IDE token expired: unauthorized: token expired\n (reset after 1m 57s)",
+      "ms": 791139
+    },
+    {
+      "model": "gh/gemini-2.5-pro",
+      "ok": false,
+      "verdict": "upstream401",
+      "detail": "[github/gemini-2.5-pro] [401]: IDE token expired: unauthorized: token expired\n (reset after 1m 56s)",
+      "ms": 791327
+    },
+    {
+      "model": "gh/gemini-3-flash-preview",
+      "ok": false,
+      "verdict": "upstream401",
+      "detail": "[github/gemini-3-flash-preview] [401]: IDE token expired: unauthorized: token expired\n (reset after 1m 56s)",
+      "ms": 791519
+    },
+    {
+      "model": "gh/gemini-3.1-pro-preview",
+      "ok": false,
+      "verdict": "upstream401",
+      "detail": "[github/gemini-3.1-pro-preview] [401]: IDE token expired: unauthorized: token expired\n (reset after 1m 56s)",
+      "ms": 792161
+    },
+    {
+      "model": "gh/goldeneye-free-auto",
+      "ok": false,
+      "verdict": "upstream401",
+      "detail": "[github/goldeneye-free-auto] [401]: IDE token expired: unauthorized: token expired\n (reset after 1m 54s)",
+      "ms": 794038
+    },
+    {
+      "model": "gh/gpt-5.2",
+      "ok": false,
+      "verdict": "upstream401",
+      "detail": "[github/gpt-5.2] [401]: IDE token expired: unauthorized: token expired\n (reset after 1m 53s)",
+      "ms": 794999
+    },
+    {
+      "model": "gh/gpt-5.2-codex",
+      "ok": false,
+      "verdict": "upstream401",
+      "detail": "[github/gpt-5.2-codex] [401]: IDE token expired: unauthorized: token expired\n (reset after 1m 53s)",
+      "ms": 795209
+    },
+    {
+      "model": "gh/gpt-5.3-codex",
+      "ok": false,
+      "verdict": "upstream401",
+      "detail": "[github/gpt-5.3-codex] [401]: IDE token expired: unauthorized: token expired\n (reset after 1m 52s)",
+      "ms": 795433
+    },
+    {
+      "model": "gh/gpt-5.4",
+      "ok": false,
+      "verdict": "upstream401",
+      "detail": "[github/gpt-5.4] [401]: IDE token expired: unauthorized: token expired\n (reset after 1m 52s)",
+      "ms": 796052
+    },
+    {
+      "model": "gh/gpt-5.4-mini",
+      "ok": false,
+      "verdict": "upstream401",
+      "detail": "[github/gpt-5.4-mini] [401]: IDE token expired: unauthorized: token expired\n (reset after 1m 50s)",
+      "ms": 797688
+    },
+    {
+      "model": "gh/grok-code-fast-1",
+      "ok": false,
+      "verdict": "upstream401",
+      "detail": "[github/grok-code-fast-1] [401]: IDE token expired: unauthorized: token expired\n (reset after 1m 50s)",
+      "ms": 797679
+    },
+    {
+      "model": "gh/oswe-vscode-prime",
+      "ok": false,
+      "verdict": "upstream401",
+      "detail": "[github/oswe-vscode-prime] [401]: IDE token expired: unauthorized: token expired\n (reset after 1m 50s)",
+      "ms": 798106
+    },
+    {
+      "model": "glm/glm-4.6v",
+      "ok": false,
+      "verdict": "upstream429",
+      "detail": "[glm/glm-4.6v] [429]: {\"error\":{\"code\":\"1113\",\"message\":\"Insufficient balance or no resource package. Please recharge.\"}} (reset after 5m)",
+      "ms": 794995
+    },
+    {
+      "model": "glm/glm-4.7",
+      "ok": false,
+      "verdict": "upstream429",
+      "detail": "[glm/glm-4.7] [429]: {\"error\":{\"code\":\"1113\",\"message\":\"Insufficient balance or no resource package. Please recharge.\"}} (reset after 5m)",
+      "ms": 795040
+    },
+    {
+      "model": "glm/glm-5",
+      "ok": false,
+      "verdict": "upstream429",
+      "detail": "[glm/glm-5] [429]: {\"error\":{\"code\":\"1113\",\"message\":\"Insufficient balance or no resource package. Please recharge.\"}} (reset after 5m)",
+      "ms": 795558
+    },
+    {
+      "model": "glm/glm-5-turbo",
+      "ok": false,
+      "verdict": "upstream429",
+      "detail": "[glm/glm-5-turbo] [429]: {\"error\":{\"code\":\"1113\",\"message\":\"Insufficient balance or no resource package. Please recharge.\"}} (reset after 5m)",
+      "ms": 795545
+    },
+    {
+      "model": "glm/glm-5.1",
+      "ok": false,
+      "verdict": "upstream429",
+      "detail": "[glm/glm-5.1] [429]: {\"error\":{\"code\":\"1113\",\"message\":\"Insufficient balance or no resource package. Please recharge.\"}} (reset after 5m)",
+      "ms": 795682
+    },
+    {
+      "model": "glm/glm-5.2",
+      "ok": false,
+      "verdict": "upstream429",
+      "detail": "[glm/glm-5.2] [429]: {\"error\":{\"code\":\"1113\",\"message\":\"Insufficient balance or no resource package. Please recharge.\"}} (reset after 4m 59s)",
+      "ms": 796351
+    },
+    {
+      "model": "glm/glm-5.3",
+      "ok": false,
+      "verdict": "upstream429",
+      "detail": "[glm/glm-5.3] [429]: {\"error\":{\"code\":\"1113\",\"message\":\"Insufficient balance or no resource package. Please recharge.\"}} (reset after 4m 58s)",
+      "ms": 796989
+    },
+    {
+      "model": "glm/glm-5.3-flash",
+      "ok": false,
+      "verdict": "upstream429",
+      "detail": "[glm/glm-5.3-flash] [429]: {\"error\":{\"code\":\"1113\",\"message\":\"Insufficient balance or no resource package. Please recharge.\"}} (reset after 4m 58s)",
+      "ms": 797694
+    },
+    {
+      "model": "kc/anthropic/claude-opus-4-20250514",
+      "ok": false,
+      "verdict": "upstream402",
+      "detail": "[kilocode/anthropic/claude-opus-4-20250514] [402]: {\"error\":{\"title\":\"Paid Model - Credits Required\",\"message\":\"Add credits to continue, or switch to a free mod",
+      "ms": 798708
+    },
+    {
+      "model": "kc/anthropic/claude-sonnet-4-20250514",
+      "ok": false,
+      "verdict": "upstream402",
+      "detail": "[kilocode/anthropic/claude-sonnet-4-20250514] [402]: {\"error\":{\"title\":\"Paid Model - Credits Required\",\"message\":\"Add credits to continue, or switch to a free m",
+      "ms": 799214
+    },
+    {
+      "model": "kc/deepseek/deepseek-chat",
+      "ok": false,
+      "verdict": "upstream402",
+      "detail": "[kilocode/deepseek/deepseek-chat] [402]: {\"error\":{\"title\":\"Paid Model - Credits Required\",\"message\":\"Add credits to continue, or switch to a free model\",\"balan",
+      "ms": 804280
+    },
+    {
+      "model": "kc/deepseek/deepseek-reasoner",
+      "ok": false,
+      "verdict": "upstream402",
+      "detail": "[kilocode/deepseek/deepseek-reasoner] [402]: {\"error\":{\"title\":\"Paid Model - Credits Required\",\"message\":\"Add credits to continue, or switch to a free model\",\"b",
+      "ms": 802218
+    },
+    {
+      "model": "kc/google/gemini-2.5-flash",
+      "ok": false,
+      "verdict": "upstream402",
+      "detail": "[kilocode/google/gemini-2.5-flash] [402]: {\"error\":{\"title\":\"Paid Model - Credits Required\",\"message\":\"Add credits to continue, or switch to a free model\",\"bala",
+      "ms": 816340
+    },
+    {
+      "model": "kc/google/gemini-2.5-pro",
+      "ok": false,
+      "verdict": "upstream402",
+      "detail": "[kilocode/google/gemini-2.5-pro] [402]: {\"error\":{\"title\":\"Paid Model - Credits Required\",\"message\":\"Add credits to continue, or switch to a free model\",\"balanc",
+      "ms": 818016
+    },
+    {
+      "model": "kc/google/lyria-3-clip-preview",
+      "ok": false,
+      "verdict": "upstream402",
+      "detail": "[kilocode/google/lyria-3-clip-preview] [402]: {\"error\":{\"title\":\"Paid Model - Credits Required\",\"message\":\"Add credits to continue, or switch to a free model\",\"",
+      "ms": 820117
+    },
+    {
+      "model": "kc/google/lyria-3-pro-preview",
+      "ok": false,
+      "verdict": "upstream402",
+      "detail": "[kilocode/google/lyria-3-pro-preview] [402]: {\"error\":{\"title\":\"Paid Model - Credits Required\",\"message\":\"Add credits to continue, or switch to a free model\",\"b",
+      "ms": 820696
+    },
+    {
+      "model": "kc/inclusionai/ling-3.0-flash-fin:free",
+      "ok": false,
+      "verdict": "upstream404",
+      "detail": "[kilocode/inclusionai/ling-3.0-flash-fin:free] [404]: {\"error\":\"The requested model 'inclusionai/ling-3.0-flash-fin:free' does not exist. Please use an exact mo",
+      "ms": 821076
+    },
+    {
+      "model": "kc/inclusionai/ling-3.0-flash-vl:free",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 823196
+    },
+    {
+      "model": "kc/nex-agi/nex-n2.5-mini:free",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 823432
+    },
+    {
+      "model": "kc/nex-agi/nex-n2.5-pro:free",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 823520
+    },
+    {
+      "model": "kc/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "ok": false,
+      "verdict": "HTTP200",
+      "detail": "Upstream error from Nvidia: ResourceExhausted: Worker local total request limit reached (16/16)",
+      "ms": 808508
+    },
+    {
+      "model": "kc/openai/gpt-4.1",
+      "ok": false,
+      "verdict": "upstream402",
+      "detail": "[kilocode/openai/gpt-4.1] [402]: {\"error\":{\"title\":\"Paid Model - Credits Required\",\"message\":\"Add credits to continue, or switch to a free model\",\"balance\":-0.0",
+      "ms": 827022
+    },
+    {
+      "model": "kc/openai/o3",
+      "ok": false,
+      "verdict": "upstream402",
+      "detail": "[kilocode/openai/o3] [402]: {\"error\":{\"title\":\"Paid Model - Credits Required\",\"message\":\"Add credits to continue, or switch to a free model\",\"balance\":-0.00001,",
+      "ms": 827532
+    },
+    {
+      "model": "kc/poolside/laguna-xs-2.1:free",
+      "ok": false,
+      "verdict": "upstream429",
+      "detail": "[kilocode/poolside/laguna-xs-2.1:free] [429]: {\"error\":{\"message\":\"Provider returned error\",\"code\":429,\"metadata\":{\"raw\":\"poolside/laguna-xs-2.1:free is tempora",
+      "ms": 828996
+    },
+    {
+      "model": "kc/thinkingmachines/inkling-small:free",
+      "ok": false,
+      "verdict": "upstream429",
+      "detail": "[kilocode/thinkingmachines/inkling-small:free] [429]: {\"error\":{\"message\":\"Rate limit exceeded: limit_rpd/thinkingmachines/inkling-small-20260730/e27a9a6d-1451-",
+      "ms": 829410
+    },
+    {
+      "model": "kimi/k3",
+      "ok": false,
+      "verdict": "upstream401",
+      "detail": "[kimi/k3] [401]: {\"error\":{\"message\":\"The API Key appears to be invalid or may have expired. Please verify your credentials and try again.\",\"type\":\"invalid_auth",
+      "ms": 821171
+    },
+    {
+      "model": "kimi/kimi-for-coding",
+      "ok": false,
+      "verdict": "upstream401",
+      "detail": "[kimi/kimi-for-coding] [401]: {\"error\":{\"message\":\"The API Key appears to be invalid or may have expired. Please verify your credentials and try again.\",\"type\":",
+      "ms": 821257
+    },
+    {
+      "model": "kimi/kimi-for-coding-highspeed",
+      "ok": false,
+      "verdict": "upstream401",
+      "detail": "[kimi/kimi-for-coding-highspeed] [401]: {\"error\":{\"message\":\"The API Key appears to be invalid or may have expired. Please verify your credentials and try again",
+      "ms": 822513
+    },
+    {
+      "model": "kimi/kimi-k2.5",
+      "ok": false,
+      "verdict": "upstream401",
+      "detail": "[kimi/kimi-k2.5] [401]: {\"error\":{\"message\":\"The API Key appears to be invalid or may have expired. Please verify your credentials and try again.\",\"type\":\"inval",
+      "ms": 821800
+    },
+    {
+      "model": "kimi/kimi-k2.5-thinking",
+      "ok": false,
+      "verdict": "upstream401",
+      "detail": "[kimi/kimi-k2.5-thinking] [401]: {\"error\":{\"message\":\"The API Key appears to be invalid or may have expired. Please verify your credentials and try again.\",\"typ",
+      "ms": 823876
+    },
+    {
+      "model": "kimi/kimi-k2.6",
+      "ok": false,
+      "verdict": "upstream401",
+      "detail": "[kimi/kimi-k2.6] [401]: {\"error\":{\"message\":\"The API Key appears to be invalid or may have expired. Please verify your credentials and try again.\",\"type\":\"inval",
+      "ms": 824520
+    },
+    {
+      "model": "kimi/kimi-k2.7-code",
+      "ok": false,
+      "verdict": "upstream401",
+      "detail": "[kimi/kimi-k2.7-code] [401]: {\"error\":{\"message\":\"The API Key appears to be invalid or may have expired. Please verify your credentials and try again.\",\"type\":\"",
+      "ms": 825179
+    },
+    {
+      "model": "kimi/kimi-k2.7-code-highspeed",
+      "ok": false,
+      "verdict": "upstream401",
+      "detail": "[kimi/kimi-k2.7-code-highspeed] [401]: {\"error\":{\"message\":\"The API Key appears to be invalid or may have expired. Please verify your credentials and try again.",
+      "ms": 825930
+    },
+    {
+      "model": "kimi/kimi-k3",
+      "ok": false,
+      "verdict": "upstream401",
+      "detail": "[kimi/kimi-k3] [401]: {\"error\":{\"message\":\"The API Key appears to be invalid or may have expired. Please verify your credentials and try again.\",\"type\":\"invalid",
+      "ms": 826588
+    },
+    {
+      "model": "kimi/kimi-latest",
+      "ok": false,
+      "verdict": "upstream401",
+      "detail": "[kimi/kimi-latest] [401]: {\"error\":{\"message\":\"The API Key appears to be invalid or may have expired. Please verify your credentials and try again.\",\"type\":\"inv",
+      "ms": 827312
+    },
+    {
+      "model": "kr/auto",
+      "ok": false,
+      "verdict": "upstream402",
+      "detail": "[kiro/auto] [402]: {\"message\":\"You have reached the limit.\",\"reason\":\"MONTHLY_REQUEST_COUNT\"} (reset after 2m)",
+      "ms": 823626
+    },
+    {
+      "model": "kr/auto-thinking",
+      "ok": false,
+      "verdict": "upstream402",
+      "detail": "[kiro/auto-thinking] [402]: {\"message\":\"You have reached the limit.\",\"reason\":\"MONTHLY_REQUEST_COUNT\"} (reset after 2m)",
+      "ms": 824146
+    },
+    {
+      "model": "kr/claude-haiku-4.5",
+      "ok": false,
+      "verdict": "upstream402",
+      "detail": "[kiro/claude-haiku-4.5] [402]: {\"message\":\"You have reached the limit.\",\"reason\":\"MONTHLY_REQUEST_COUNT\"} (reset after 2m)",
+      "ms": 824310
+    },
+    {
+      "model": "kr/claude-haiku-4.5-agentic",
+      "ok": false,
+      "verdict": "upstream402",
+      "detail": "[kiro/claude-haiku-4.5-agentic] [402]: {\"message\":\"You have reached the limit.\",\"reason\":\"MONTHLY_REQUEST_COUNT\"} (reset after 2m)",
+      "ms": 824416
+    },
+    {
+      "model": "kr/claude-haiku-4.5-thinking",
+      "ok": false,
+      "verdict": "upstream402",
+      "detail": "[kiro/claude-haiku-4.5-thinking] [402]: {\"message\":\"You have reached the limit.\",\"reason\":\"MONTHLY_REQUEST_COUNT\"} (reset after 2m)",
+      "ms": 823887
+    },
+    {
+      "model": "kr/claude-haiku-4.5-thinking-agentic",
+      "ok": false,
+      "verdict": "upstream402",
+      "detail": "[kiro/claude-haiku-4.5-thinking-agentic] [402]: {\"message\":\"You have reached the limit.\",\"reason\":\"MONTHLY_REQUEST_COUNT\"} (reset after 1m 59s)",
+      "ms": 824645
+    },
+    {
+      "model": "kr/claude-sonnet-4",
+      "ok": false,
+      "verdict": "upstream402",
+      "detail": "[kiro/claude-sonnet-4] [402]: {\"message\":\"You have reached the limit.\",\"reason\":\"MONTHLY_REQUEST_COUNT\"} (reset after 2m)",
+      "ms": 824152
+    },
+    {
+      "model": "kr/claude-sonnet-4-agentic",
+      "ok": false,
+      "verdict": "upstream402",
+      "detail": "[kiro/claude-sonnet-4-agentic] [402]: {\"message\":\"You have reached the limit.\",\"reason\":\"MONTHLY_REQUEST_COUNT\"} (reset after 1m 59s)",
+      "ms": 824778
+    },
+    {
+      "model": "kr/claude-sonnet-4-thinking",
+      "ok": false,
+      "verdict": "upstream402",
+      "detail": "[kiro/claude-sonnet-4-thinking] [402]: {\"message\":\"You have reached the limit.\",\"reason\":\"MONTHLY_REQUEST_COUNT\"} (reset after 2m)",
+      "ms": 824423
+    },
+    {
+      "model": "kr/claude-sonnet-4-thinking-agentic",
+      "ok": false,
+      "verdict": "upstream402",
+      "detail": "[kiro/claude-sonnet-4-thinking-agentic] [402]: {\"message\":\"You have reached the limit.\",\"reason\":\"MONTHLY_REQUEST_COUNT\"} (reset after 1m 59s)",
+      "ms": 824652
+    },
+    {
+      "model": "kr/claude-sonnet-4.5",
+      "ok": false,
+      "verdict": "upstream402",
+      "detail": "[kiro/claude-sonnet-4.5] [402]: {\"message\":\"You have reached the limit.\",\"reason\":\"MONTHLY_REQUEST_COUNT\"} (reset after 2m)",
+      "ms": 824576
+    },
+    {
+      "model": "kr/claude-sonnet-4.5-agentic",
+      "ok": false,
+      "verdict": "upstream402",
+      "detail": "[kiro/claude-sonnet-4.5-agentic] [402]: {\"message\":\"You have reached the limit.\",\"reason\":\"MONTHLY_REQUEST_COUNT\"} (reset after 1m 59s)",
+      "ms": 824726
+    },
+    {
+      "model": "kr/claude-sonnet-4.5-thinking",
+      "ok": false,
+      "verdict": "upstream402",
+      "detail": "[kiro/claude-sonnet-4.5-thinking] [402]: {\"message\":\"You have reached the limit.\",\"reason\":\"MONTHLY_REQUEST_COUNT\"} (reset after 1m 59s)",
+      "ms": 824722
+    },
+    {
+      "model": "kr/claude-sonnet-4.5-thinking-agentic",
+      "ok": false,
+      "verdict": "upstream402",
+      "detail": "[kiro/claude-sonnet-4.5-thinking-agentic] [402]: {\"message\":\"You have reached the limit.\",\"reason\":\"MONTHLY_REQUEST_COUNT\"} (reset after 1m 59s)",
+      "ms": 825372
+    },
+    {
+      "model": "kr/deepseek-3.2",
+      "ok": false,
+      "verdict": "upstream402",
+      "detail": "[kiro/deepseek-3.2] [402]: {\"message\":\"You have reached the limit.\",\"reason\":\"MONTHLY_REQUEST_COUNT\"} (reset after 1m 59s)",
+      "ms": 824838
+    },
+    {
+      "model": "kr/deepseek-3.2-agentic",
+      "ok": false,
+      "verdict": "upstream402",
+      "detail": "[kiro/deepseek-3.2-agentic] [402]: {\"message\":\"You have reached the limit.\",\"reason\":\"MONTHLY_REQUEST_COUNT\"} (reset after 1m 59s)",
+      "ms": 824983
+    },
+    {
+      "model": "kr/deepseek-3.2-thinking",
+      "ok": false,
+      "verdict": "upstream402",
+      "detail": "[kiro/deepseek-3.2-thinking] [402]: {\"message\":\"You have reached the limit.\",\"reason\":\"MONTHLY_REQUEST_COUNT\"} (reset after 1m 59s)",
+      "ms": 824990
+    },
+    {
+      "model": "kr/deepseek-3.2-thinking-agentic",
+      "ok": false,
+      "verdict": "upstream402",
+      "detail": "[kiro/deepseek-3.2-thinking-agentic] [402]: {\"message\":\"You have reached the limit.\",\"reason\":\"MONTHLY_REQUEST_COUNT\"} (reset after 1m 59s)",
+      "ms": 825003
+    },
+    {
+      "model": "kr/glm-5",
+      "ok": false,
+      "verdict": "upstream402",
+      "detail": "[kiro/glm-5] [402]: {\"message\":\"You have reached the limit.\",\"reason\":\"MONTHLY_REQUEST_COUNT\"} (reset after 1m 59s)",
+      "ms": 825019
+    },
+    {
+      "model": "kr/glm-5-agentic",
+      "ok": false,
+      "verdict": "upstream402",
+      "detail": "[kiro/glm-5-agentic] [402]: {\"message\":\"You have reached the limit.\",\"reason\":\"MONTHLY_REQUEST_COUNT\"} (reset after 1m 59s)",
+      "ms": 825051
+    },
+    {
+      "model": "kr/glm-5-thinking",
+      "ok": false,
+      "verdict": "upstream402",
+      "detail": "[kiro/glm-5-thinking] [402]: {\"message\":\"You have reached the limit.\",\"reason\":\"MONTHLY_REQUEST_COUNT\"} (reset after 1m 59s)",
+      "ms": 825116
+    },
+    {
+      "model": "kr/glm-5-thinking-agentic",
+      "ok": false,
+      "verdict": "upstream402",
+      "detail": "[kiro/glm-5-thinking-agentic] [402]: {\"message\":\"You have reached the limit.\",\"reason\":\"MONTHLY_REQUEST_COUNT\"} (reset after 1m 59s)",
+      "ms": 825305
+    },
+    {
+      "model": "kr/minimax-m2.1",
+      "ok": false,
+      "verdict": "upstream402",
+      "detail": "[kiro/minimax-m2.1] [402]: {\"message\":\"You have reached the limit.\",\"reason\":\"MONTHLY_REQUEST_COUNT\"} (reset after 1m 59s)",
+      "ms": 825298
+    },
+    {
+      "model": "kr/minimax-m2.1-agentic",
+      "ok": false,
+      "verdict": "upstream402",
+      "detail": "[kiro/minimax-m2.1-agentic] [402]: {\"message\":\"You have reached the limit.\",\"reason\":\"MONTHLY_REQUEST_COUNT\"} (reset after 1m 59s)",
+      "ms": 825309
+    },
+    {
+      "model": "kr/minimax-m2.1-thinking",
+      "ok": false,
+      "verdict": "upstream402",
+      "detail": "[kiro/minimax-m2.1-thinking] [402]: {\"message\":\"You have reached the limit.\",\"reason\":\"MONTHLY_REQUEST_COUNT\"} (reset after 1m 59s)",
+      "ms": 825325
+    },
+    {
+      "model": "kr/minimax-m2.1-thinking-agentic",
+      "ok": false,
+      "verdict": "upstream402",
+      "detail": "[kiro/minimax-m2.1-thinking-agentic] [402]: {\"message\":\"You have reached the limit.\",\"reason\":\"MONTHLY_REQUEST_COUNT\"} (reset after 1m 59s)",
+      "ms": 825339
+    },
+    {
+      "model": "kr/minimax-m2.5",
+      "ok": false,
+      "verdict": "upstream402",
+      "detail": "[kiro/minimax-m2.5] [402]: {\"message\":\"You have reached the limit.\",\"reason\":\"MONTHLY_REQUEST_COUNT\"} (reset after 1m 59s)",
+      "ms": 825384
+    },
+    {
+      "model": "kr/minimax-m2.5-agentic",
+      "ok": false,
+      "verdict": "upstream402",
+      "detail": "[kiro/minimax-m2.5-agentic] [402]: {\"message\":\"You have reached the limit.\",\"reason\":\"MONTHLY_REQUEST_COUNT\"} (reset after 1m 58s)",
+      "ms": 826074
+    },
+    {
+      "model": "kr/minimax-m2.5-thinking",
+      "ok": false,
+      "verdict": "upstream402",
+      "detail": "[kiro/minimax-m2.5-thinking] [402]: {\"message\":\"You have reached the limit.\",\"reason\":\"MONTHLY_REQUEST_COUNT\"} (reset after 1m 58s)",
+      "ms": 825651
+    },
+    {
+      "model": "kr/minimax-m2.5-thinking-agentic",
+      "ok": false,
+      "verdict": "upstream402",
+      "detail": "[kiro/minimax-m2.5-thinking-agentic] [402]: {\"message\":\"You have reached the limit.\",\"reason\":\"MONTHLY_REQUEST_COUNT\"} (reset after 1m 58s)",
+      "ms": 825644
+    },
+    {
+      "model": "kr/qwen3-coder-next",
+      "ok": false,
+      "verdict": "upstream402",
+      "detail": "[kiro/qwen3-coder-next] [402]: {\"message\":\"You have reached the limit.\",\"reason\":\"MONTHLY_REQUEST_COUNT\"} (reset after 1m 58s)",
+      "ms": 825658
+    },
+    {
+      "model": "kr/qwen3-coder-next-agentic",
+      "ok": false,
+      "verdict": "upstream402",
+      "detail": "[kiro/qwen3-coder-next-agentic] [402]: {\"message\":\"You have reached the limit.\",\"reason\":\"MONTHLY_REQUEST_COUNT\"} (reset after 1m 58s)",
+      "ms": 825686
+    },
+    {
+      "model": "kr/qwen3-coder-next-thinking",
+      "ok": false,
+      "verdict": "upstream402",
+      "detail": "[kiro/qwen3-coder-next-thinking] [402]: {\"message\":\"You have reached the limit.\",\"reason\":\"MONTHLY_REQUEST_COUNT\"} (reset after 1m 58s)",
+      "ms": 825701
+    },
+    {
+      "model": "kr/qwen3-coder-next-thinking-agentic",
+      "ok": false,
+      "verdict": "upstream402",
+      "detail": "[kiro/qwen3-coder-next-thinking-agentic] [402]: {\"message\":\"You have reached the limit.\",\"reason\":\"MONTHLY_REQUEST_COUNT\"} (reset after 1m 58s)",
+      "ms": 825707
+    },
+    {
+      "model": "minimax/MiniMax-M2.1",
+      "ok": false,
+      "verdict": "upstream402",
+      "detail": "[minimax/MiniMax-M2.1] [402]: {\"type\":\"error\",\"error\":{\"type\":\"insufficient_balance_error\",\"message\":\"insufficient balance (1008)\",\"http_code\":\"402\"},\"request_i",
+      "ms": 826649
+    },
+    {
+      "model": "minimax/MiniMax-M2.5",
+      "ok": false,
+      "verdict": "upstream402",
+      "detail": "[minimax/MiniMax-M2.5] [402]: {\"type\":\"error\",\"error\":{\"type\":\"insufficient_balance_error\",\"message\":\"insufficient balance (1008)\",\"http_code\":\"402\"},\"request_i",
+      "ms": 826672
+    },
+    {
+      "model": "minimax/MiniMax-M2.7",
+      "ok": false,
+      "verdict": "upstream402",
+      "detail": "[minimax/MiniMax-M2.7] [402]: {\"type\":\"error\",\"error\":{\"type\":\"insufficient_balance_error\",\"message\":\"insufficient balance (1008)\",\"http_code\":\"402\"},\"request_i",
+      "ms": 826677
+    },
+    {
+      "model": "minimax/MiniMax-M3",
+      "ok": false,
+      "verdict": "upstream402",
+      "detail": "[minimax/MiniMax-M3] [402]: {\"type\":\"error\",\"error\":{\"type\":\"insufficient_balance_error\",\"message\":\"insufficient balance (1008)\",\"http_code\":\"402\"},\"request_id\"",
+      "ms": 826643
+    },
+    {
+      "model": "mistral/mistral-large-latest",
+      "ok": false,
+      "verdict": "upstream401",
+      "detail": "[mistral/mistral-large-latest] [401]: {\"detail\":\"Invalid API Key\"}\n (reset after 1m 57s)",
+      "ms": 833759
+    },
+    {
+      "model": "mistral/mistral-medium-latest",
+      "ok": false,
+      "verdict": "upstream401",
+      "detail": "[mistral/mistral-medium-latest] [401]: {\"detail\":\"Invalid API Key\"}\n (reset after 2m)",
+      "ms": 830843
+    },
+    {
+      "model": "ollama/deepseek-v4.1-flash:cloud",
+      "ok": false,
+      "verdict": "upstream402",
+      "detail": "[ollama/deepseek-v4.1-flash:cloud] [402]: {\"error\":\"this model is not included in your free usage, add usage credits to pay as you go: https://ollama.com/settin",
+      "ms": 827077
+    },
+    {
+      "model": "ollama/glm-4.7-flash",
+      "ok": false,
+      "verdict": "upstream404",
+      "detail": "[ollama/glm-4.7-flash] [404]: {\"error\": \"model 'glm-4.7-flash' not found\"}\n (reset after 2m)",
+      "ms": 827430
+    },
+    {
+      "model": "ollama/glm-5",
+      "ok": false,
+      "verdict": "HTTP410",
+      "detail": "[410]: {\"error\":\"glm-5 was retired at 2026-07-15 00:00:00 -0700 PDT (ref: 3d3633fa-18b6-4927-b235-b0013690f801)\"}\n",
+      "ms": 827522
+    },
+    {
+      "model": "ollama/gpt-oss:120b",
+      "ok": false,
+      "verdict": "badjson",
+      "detail": "Expecting value: line 1 column 1 (char 0)",
+      "ms": 828529
+    },
+    {
+      "model": "ollama/kimi-k2.5",
+      "ok": false,
+      "verdict": "HTTP410",
+      "detail": "[410]: {\"error\":\"kimi-k2.5 was retired at 2026-07-31 00:00:00 -0700 PDT (ref: 7e24c519-b9c2-4332-ba62-3176e75823e3)\"}\n",
+      "ms": 827586
+    },
+    {
+      "model": "ollama/minimax-m2.5",
+      "ok": false,
+      "verdict": "HTTP410",
+      "detail": "[410]: {\"error\":\"minimax-m2.5 was retired at 2026-07-31 00:00:00 -0700 PDT (ref: f3165c11-9a5f-4eab-9da5-a608352107ec)\"}\n",
+      "ms": 828931
+    },
+    {
+      "model": "ollama/minimax-m3",
+      "ok": false,
+      "verdict": "upstream402",
+      "detail": "[ollama/minimax-m3] [402]: {\"error\":\"this model is not included in your free usage, add usage credits to pay as you go: https://ollama.com/settings or upgrade f",
+      "ms": 827608
+    },
+    {
+      "model": "ollama/qwen3.5",
+      "ok": false,
+      "verdict": "HTTP410",
+      "detail": "[410]: {\"error\":\"qwen3.5:397b was retired at 2026-09-25 00:00:00 -0700 PDT (ref: 57b2ca28-909b-4150-bee8-3851af44dcea)\"}\n",
+      "ms": 827374
+    },
+    {
+      "model": "openrouter/google/gemma-4-26b-a4b-it:free",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 852386
+    },
+    {
+      "model": "openrouter/google/gemma-4-31b-it:free",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 852438
+    },
+    {
+      "model": "openrouter/google/lyria-3-clip-preview",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 852484
+    },
+    {
+      "model": "openrouter/google/lyria-3-pro-preview",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 852528
+    },
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-fin:free",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 852537
+    },
+    {
+      "model": "openrouter/minimax/minimax-m3:free",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 852616
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 857253
+    },
+    {
+      "model": "openrouter/thinkingmachines/inkling-small:free",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 858773
+    },
+    {
+      "model": "openrouter/thinkingmachines/inkling:free",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 858833
+    },
+    {
+      "model": "openrouter/typesafe/jev-1.13",
+      "ok": false,
+      "verdict": "HTTP400",
+      "detail": "[400]: {\"error\":{\"message\":\"typesafe/jev-1.13 is a decisions model and cannot be used with the chat/completions endpoint. Use the /api/alpha/decisions endpoint ",
+      "ms": 854306
+    },
+    {
+      "model": "openrouter/z-ai/glm-5.2:free",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 863124
+    },
+    {
+      "model": "xai/grok-3",
+      "ok": false,
+      "verdict": "upstream402",
+      "detail": "[xai/grok-3] [402]: {\"code\":\"personal-team-blocked:spending-limit\",\"error\":\"You have run out of credits or need a Grok subscription. Add credits at https://grok",
+      "ms": 844317
+    },
+    {
+      "model": "xai/grok-4",
+      "ok": false,
+      "verdict": "upstream402",
+      "detail": "[xai/grok-4] [402]: {\"code\":\"personal-team-blocked:spending-limit\",\"error\":\"You have run out of credits or need a Grok subscription. Add credits at https://grok",
+      "ms": 844636
+    },
+    {
+      "model": "xai/grok-4-fast-reasoning",
+      "ok": false,
+      "verdict": "upstream402",
+      "detail": "[xai/grok-4-fast-reasoning] [402]: {\"code\":\"personal-team-blocked:spending-limit\",\"error\":\"You have run out of credits or need a Grok subscription. Add credits ",
+      "ms": 844863
+    },
+    {
+      "model": "xai/grok-4.5",
+      "ok": false,
+      "verdict": "upstream402",
+      "detail": "[xai/grok-4.5] [402]: {\"code\":\"personal-team-blocked:spending-limit\",\"error\":\"You have run out of credits or need a Grok subscription. Add credits at https://gr",
+      "ms": 845421
+    },
+    {
+      "model": "xai/grok-4.6",
+      "ok": false,
+      "verdict": "upstream402",
+      "detail": "[xai/grok-4.6] [402]: {\"code\":\"personal-team-blocked:spending-limit\",\"error\":\"You have run out of credits or need a Grok subscription. Add credits at https://gr",
+      "ms": 845971
+    },
+    {
+      "model": "xai/grok-code-fast-1",
+      "ok": false,
+      "verdict": "upstream402",
+      "detail": "[xai/grok-code-fast-1] [402]: {\"code\":\"personal-team-blocked:spending-limit\",\"error\":\"You have run out of credits or need a Grok subscription. Add credits at ht",
+      "ms": 846515
+    }
+  ]
+}

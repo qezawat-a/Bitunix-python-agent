@@ -1,0 +1,17 @@
+[Unit]
+Description=J-Rock Telegram AI Agent + Bitunix Trader Bot
+After=network.target
+
+[Service]
+Type=simple
+User=j-rock
+WorkingDirectory=/home/j-rock/Bitunix-python-agent
+Environment="PATH=/home/j-rock/Bitunix-python-agent/venv/bin"
+ExecStart=/home/j-rock/Bitunix-python-agent/venv/bin/python3 run.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

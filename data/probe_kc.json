@@ -1,0 +1,190 @@
+{
+  "base_url": "http://127.0.0.1:20128/v1",
+  "probed_at": "2026-09-30T03:47:36Z",
+  "probed": 26,
+  "working": 7,
+  "results": [
+    {
+      "model": "kc/cohere/north-mini-code:free",
+      "ok": true,
+      "verdict": "OK",
+      "detail": "",
+      "ms": 1728
+    },
+    {
+      "model": "kc/dots-studio/dots-3-note-preview:free",
+      "ok": true,
+      "verdict": "OK",
+      "detail": "",
+      "ms": 2100
+    },
+    {
+      "model": "kc/inclusionai/ling-3.0-flash-sante:free",
+      "ok": true,
+      "verdict": "OK",
+      "detail": "",
+      "ms": 10759
+    },
+    {
+      "model": "kc/kilo-auto/free",
+      "ok": true,
+      "verdict": "OK",
+      "detail": "",
+      "ms": 12473
+    },
+    {
+      "model": "kc/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "ok": true,
+      "verdict": "OK",
+      "detail": "",
+      "ms": 16016
+    },
+    {
+      "model": "kc/nvidia/nemotron-3-super-120b-a12b:free",
+      "ok": true,
+      "verdict": "OK",
+      "detail": "",
+      "ms": 17220
+    },
+    {
+      "model": "kc/nvidia/nemotron-3-ultra-550b-a55b:free",
+      "ok": true,
+      "verdict": "OK",
+      "detail": "",
+      "ms": 18603
+    },
+    {
+      "model": "kc/anthropic/claude-opus-4-20250514",
+      "ok": false,
+      "verdict": "upstream402",
+      "detail": "[kilocode/anthropic/claude-opus-4-20250514] [402]: {\"error\":{\"title\":\"Paid Model - Credits Required\",\"message\":\"Add credits to continue, or switch to a free mod",
+      "ms": 3240
+    },
+    {
+      "model": "kc/anthropic/claude-sonnet-4-20250514",
+      "ok": false,
+      "verdict": "upstream402",
+      "detail": "[kilocode/anthropic/claude-sonnet-4-20250514] [402]: {\"error\":{\"title\":\"Paid Model - Credits Required\",\"message\":\"Add credits to continue, or switch to a free m",
+      "ms": 2699
+    },
+    {
+      "model": "kc/deepseek/deepseek-chat",
+      "ok": false,
+      "verdict": "upstream402",
+      "detail": "[kilocode/deepseek/deepseek-chat] [402]: {\"error\":{\"title\":\"Paid Model - Credits Required\",\"message\":\"Add credits to continue, or switch to a free model\",\"balan",
+      "ms": 7386
+    },
+    {
+      "model": "kc/deepseek/deepseek-reasoner",
+      "ok": false,
+      "verdict": "upstream402",
+      "detail": "[kilocode/deepseek/deepseek-reasoner] [402]: {\"error\":{\"title\":\"Paid Model - Credits Required\",\"message\":\"Add credits to continue, or switch to a free model\",\"b",
+      "ms": 5773
+    },
+    {
+      "model": "kc/google/gemini-2.5-flash",
+      "ok": false,
+      "verdict": "upstream402",
+      "detail": "[kilocode/google/gemini-2.5-flash] [402]: {\"error\":{\"title\":\"Paid Model - Credits Required\",\"message\":\"Add credits to continue, or switch to a free model\",\"bala",
+      "ms": 5270
+    },
+    {
+      "model": "kc/google/gemini-2.5-pro",
+      "ok": false,
+      "verdict": "upstream402",
+      "detail": "[kilocode/google/gemini-2.5-pro] [402]: {\"error\":{\"title\":\"Paid Model - Credits Required\",\"message\":\"Add credits to continue, or switch to a free model\",\"balanc",
+      "ms": 3773
+    },
+    {
+      "model": "kc/google/lyria-3-clip-preview",
+      "ok": false,
+      "verdict": "upstream402",
+      "detail": "[kilocode/google/lyria-3-clip-preview] [402]: {\"error\":{\"title\":\"Paid Model - Credits Required\",\"message\":\"Add credits to continue, or switch to a free model\",\"",
+      "ms": 13365
+    },
+    {
+      "model": "kc/google/lyria-3-pro-preview",
+      "ok": false,
+      "verdict": "upstream402",
+      "detail": "[kilocode/google/lyria-3-pro-preview] [402]: {\"error\":{\"title\":\"Paid Model - Credits Required\",\"message\":\"Add credits to continue, or switch to a free model\",\"b",
+      "ms": 13891
+    },
+    {
+      "model": "kc/inclusionai/ling-3.0-flash-fin:free",
+      "ok": false,
+      "verdict": "upstream404",
+      "detail": "[kilocode/inclusionai/ling-3.0-flash-fin:free] [404]: {\"error\":\"The requested model 'inclusionai/ling-3.0-flash-fin:free' does not exist. Please use an exact mo",
+      "ms": 14875
+    },
+    {
+      "model": "kc/inclusionai/ling-3.0-flash-vl:free",
+      "ok": false,
+      "verdict": "upstream404",
+      "detail": "[kilocode/inclusionai/ling-3.0-flash-vl:free] [404]: {\"error\":\"The requested model 'inclusionai/ling-3.0-flash-vl:free' does not exist. Please use an exact mode",
+      "ms": 16491
+    },
+    {
+      "model": "kc/nex-agi/nex-n2.5-mini:free",
+      "ok": false,
+      "verdict": "upstream404",
+      "detail": "[kilocode/nex-agi/nex-n2.5-mini:free] [404]: {\"error\":\"The requested model 'nex-agi/nex-n2.5-mini:free' does not exist. Please use an exact model id as listed o",
+      "ms": 17652
+    },
+    {
+      "model": "kc/nex-agi/nex-n2.5-pro:free",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 32390
+    },
+    {
+      "model": "kc/nvidia/nemotron-3.5-lightning:free",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 38902
+    },
+    {
+      "model": "kc/openai/gpt-4.1",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 39881
+    },
+    {
+      "model": "kc/openai/o3",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 41024
+    },
+    {
+      "model": "kc/openrouter/free",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 41499
+    },
+    {
+      "model": "kc/poolside/laguna-s-2.1:free",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 42226
+    },
+    {
+      "model": "kc/poolside/laguna-xs-2.1:free",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 42667
+    },
+    {
+      "model": "kc/thinkingmachines/inkling-small:free",
+      "ok": false,
+      "verdict": "timeout",
+      "detail": "",
+      "ms": 43611
+    }
+  ]
+}
