@@ -41,12 +41,6 @@ async def _post_init(app: Application) -> None:
     # Init unified store (creates tables if they don't exist)
     from .store import init_schema
     await init_schema()
-    # Init legacy SQLite DB (trade_log, sessions, etc.)
-    try:
-        from database import init_db
-        await init_db()
-    except Exception as _e:
-        print(f"[db] init_db warning: {_e}")
     from .bot.handlers import BOT_COMMANDS
     if BOT_COMMANDS:
         await core.bot.set_my_commands([

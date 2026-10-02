@@ -80,7 +80,7 @@ class Agent:
         return {n: t for n, t in REGISTRY.items() if n in keep}
 
     # ------------------------------------------------------------- prompt
-    def system_prompt(self, extra: str = "") -> str:
+    async def system_prompt(self, extra: str = "") -> str:
         s = self.ctx.settings
         # Report the model actually in use, not the literal "AUTO" placeholder.
         model = s.model
@@ -89,12 +89,13 @@ class Agent:
                 model = self.ctx.llm.resolve_model()
             except Exception:
                 model = s.model
+        memory_block = await self._memory_block()
         parts = [
             "You are J-Rock, a full AI agent running on Telegram. You work step "
             "by step: call tools to learn and to change things, then answer.",
             self._soul_block(),
             self._skills_block(),
-            self._memory_block(),
+            memory_block,
             f"<harness>\nprovider: {s.provider}\nmodel: {model}\n"
             f"thinking: {s.thinking}\n"
             f"terminal: {'enabled' if s.terminal_allowed else 'disabled'} "
@@ -130,18 +131,18 @@ class Agent:
                 "\nLoad a skill with skill_read(name) before doing that kind of "
                 "work.\n</skills>")
 
-    def _memory_block(self) -> str:
+    async def _memory_block(self) -> str:
         if not self.ctx.memory:
             return ""
         mem = self.ctx.memory
         lines = []
-        prof = mem.get_profile(self.ctx.user_id)
+        prof = await mem.get_profile(self.ctx.user_id)
         if prof:
             lines.append("Profile: " + json.dumps(prof)[:500])
-        facts = mem.recall(self.ctx.user_id, self.task, k=5)
+        facts = await mem.recall(self.ctx.user_id, self.task, k=5)
         if facts:
             lines.append("Relevant memories:\n" + "\n".join(f"- {f}" for f in facts))
-        lessons = mem.lessons(self.ctx.user_id, 5)
+        lessons = await mem.lessons(self.ctx.user_id, 5)
         if lessons:
             lines.append("Lessons learned (apply them):\n" +
                          "\n".join(f"- {x}" for x in lessons))
@@ -164,7 +165,7 @@ class Agent:
     async def run(self, task: str, history: list[dict] | None = None) -> str:
         self.task = task
         self.messages = list(history or [])[-20:]
-        self.messages.append({"role": "system", "content": self.system_prompt()})
+        self.messages.append({"role": "system", "content": await self.system_prompt()})
         self.messages.append({"role": "user", "content": task})
         self._log("user", task)
 
@@ -208,7 +209,7 @@ class Agent:
         else:
             final = "Reached the step limit. Last message:\n" + \
                     (msg.get("content") or "(none)")
-        self._maybe_learn(task)
+        await self._maybe_learn(task)
         return final
 
     async def _dispatch(self, name: str, args: dict) -> str:
@@ -228,7 +229,7 @@ class Agent:
         if self.ctx.sessions and self.ctx.session_id:
             self.ctx.sessions.append(self.ctx.session_id, role, str(content)[:20000])
 
-    def _maybe_learn(self, task: str) -> None:
+    async def _maybe_learn(self, task: str) -> None:
         """User-experience learning: capture corrections and standing rules."""
         if self.ctx.settings.learning and self.ctx.memory and FEEDBACK.search(task):
-            self.ctx.memory.add_lesson(self.ctx.user_id, f"User feedback: {task[:300]}")
+            await self.ctx.memory.add_lesson(self.ctx.user_id, f"User feedback: {task[:300]}")

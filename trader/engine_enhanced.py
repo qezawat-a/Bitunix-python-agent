@@ -10,7 +10,7 @@ import pandas as pd
 from loguru import logger
 
 from config import Config
-from database import get_db
+from jrock.store import log_paper_trade as _db_log_paper_trade
 from trader.api.rest import BitunixRestClient, BitunixError, account_dict
 from trader.api.ws import BitunixWSClient
 from trader.strategies import ALL_STRATEGIES, BaseStrategy, Direction, Signal
@@ -466,15 +466,7 @@ class TradingEngine:
             self._notify(f"❌ Order failed: [{e.code}] {e.msg}")
     
     async def _log_paper_trade(self, side: str, qty: str, price: float, sl: float, tp: float, reason: str) -> None:
-        import time as t
-        async with await get_db() as db:
-            await db.execute(
-                """INSERT INTO trade_log
-                   (user_id, symbol, side, qty, entry_price, status, strategy, paper, created_at)
-                   VALUES (0, ?, ?, ?, ?, 'open', ?, 1, ?)""",
-                (self.cfg.symbol, side, qty, str(price), reason, int(t.time())),
-            )
-            await db.commit()
+        await _db_log_paper_trade(self.cfg.symbol, side, qty, price, reason)
     
     # ── Helpers ───────────────────────────────────────────────────────
     

@@ -89,14 +89,14 @@ async def _memory_store(args: dict, ctx: AgentContext) -> str:
     if not ctx.s.learning:
         return "Learning is off; memory not stored."
     if ctx.memory:
-        ctx.memory.store(ctx.user_id, args.get("fact", ""))
+        await ctx.memory.store(ctx.user_id, args.get("fact", ""))
     return "Stored."
 
 
 async def _memory_recall(args: dict, ctx: AgentContext) -> str:
     if not ctx.memory:
         return "No memory."
-    hits = ctx.memory.recall(ctx.user_id, args.get("query", ""))
+    hits = await ctx.memory.recall(ctx.user_id, args.get("query", ""))
     return "\n".join(f"- {h}" for h in hits) or "No relevant memories."
 
 

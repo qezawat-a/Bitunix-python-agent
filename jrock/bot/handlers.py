@@ -223,7 +223,7 @@ async def _auto_learn(core, user_id: int, task: str, answer: str) -> None:
             temperature=0.1, max_tokens=120)
         out = (msg.get("content") or "").strip()
         if out and not out.startswith("NONE") and "Lesson:" in out:
-            core.memory.add_lesson(user_id, out.splitlines()[0][:300])
+            await core.memory.add_lesson(user_id, out.splitlines()[0][:300])
     except Exception:
         pass
 
@@ -483,9 +483,9 @@ async def cmd_memory(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     args = _args(context)
     uid = update.effective_user.id
     if not args:
-        prof = core.memory.get_profile(uid)
-        facts = core.memory.recall(uid, "", k=10)
-        lessons = core.memory.lessons(uid, 5)
+        prof = await core.memory.get_profile(uid)
+        facts = await core.memory.recall(uid, "", k=10)
+        lessons = await core.memory.lessons(uid, 5)
         await reply(update,
                     f"Profile: {json.dumps(prof) if prof else '(empty)'}\n\n"
                     f"Memories:\n" + "\n".join(f"- {f}" for f in facts) +
@@ -494,17 +494,17 @@ async def cmd_memory(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         return
     sub = args[0].lower()
     if sub == "add" and len(args) > 1:
-        core.memory.store(uid, " ".join(args[1:]))
+        await core.memory.store(uid, " ".join(args[1:]))
         await reply(update, "Stored.")
         return
     if sub in ("rm", "forget", "delete") and len(args) > 1:
         try:
-            ok = core.memory.forget(uid, int(args[1]))
+            ok = await core.memory.forget(uid, int(args[1]))
         except ValueError:
             ok = False
         await reply(update, "Deleted." if ok else "Give a numeric memory id.")
         return
-    hits = core.memory.recall(uid, " ".join(args))
+    hits = await core.memory.recall(uid, " ".join(args))
     await reply(update, "\n".join(f"- {h}" for h in hits) or "No matches.")
 
 

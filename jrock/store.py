@@ -1,39 +1,27 @@
 """
-One store for everything: agent memory, sessions, souls, skills, settings and
-the trader's trade log and engine settings.
+One store for everything: agent memory, lessons, settings and the trader's
+trade log — all in Neon (Postgres) via asyncpg. No SQLite, no local DB files.
 
-Backend is chosen at runtime:
-  * NEON_DATABASE_URL set  -> Postgres (Neon) via asyncpg, pooled
-  * otherwise              -> local SQLite via aiosqlite
+Set NEON_DATABASE_URL (postgresql://user:pass@host/db?sslmode=require).
+If it is missing or unreachable the bot stops with a clear error instead of
+silently running on a different database.
 
-Both backends expose the same tiny async API (`execute`, `fetchall`,
-`fetchone`, `run`) so callers never branch on the backend. Placeholders are
-written once as `?` and translated to `%s` for Postgres.
-
-Anything written here survives a restart, so the agent keeps its memory and
-the trader keeps its history even when the process moves to another machine
-(GitHub Actions, a VPS, a new deploy).
+Callers write portable SQL with `?` placeholders; they are translated to
+asyncpg's numbered `$1, $2, ...` here (never `%s` — Postgres parses that as
+"modulo column s" and raises `column "s" does not exist`).
 """
 from __future__ import annotations
 
 import asyncio
 import json
-import os
-import re
 import time
-from pathlib import Path
 from typing import Any, Optional, Sequence
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from config import Config
 
-BASE_DIR = Path(__file__).resolve().parent.parent
-LOCAL_DB = BASE_DIR / "data" / "store.db"
-LOCAL_DB.parent.mkdir(parents=True, exist_ok=True)
-
 _pool: Any = None
-_sqlite: Any = None
-_backend: str = ""
-_ready: bool = False
+_lock = asyncio.Lock()
 
 
 def neon_url() -> str:
@@ -41,96 +29,99 @@ def neon_url() -> str:
 
 
 def backend() -> str:
-    """'postgres' or 'sqlite' — resolved once, then cached."""
-    global _backend
-    if not _backend:
-        _backend = "postgres" if neon_url() else "sqlite"
-    return _backend
+    return "postgres"
+
+
+def _clean_dsn(url: str) -> tuple[str, bool]:
+    """Drop libpq-only params asyncpg rejects (channel_binding); report pooler."""
+    parts = urlsplit(url)
+    q = [(k, v) for k, v in parse_qsl(parts.query) if k != "channel_binding"]
+    if not any(k == "sslmode" for k, _ in q):
+        q.append(("sslmode", "require"))
+    clean = urlunsplit(parts._replace(query=urlencode(q)))
+    return clean, "-pooler" in (parts.hostname or "")
 
 
 def _fix(sql: str) -> str:
-    """Rewrite SQLite-flavoured SQL for Postgres."""
-    sql = sql.replace("INTEGER PRIMARY KEY AUTOINCREMENT", "BIGSERIAL PRIMARY KEY")
-    sql = re.sub(r"\bAUTOINCREMENT\b", "", sql, flags=re.I)
-    sql = re.sub(r"\?", "%s", sql)
-    return sql
-
-
-async def connect() -> None:
-    """Open the pool/connection once. Safe to call repeatedly."""
-    global _pool, _sqlite, _backend, _ready
-    if _ready:
-        return
-    url = neon_url()
-    if url:
-        try:
-            import asyncpg
-            _pool = await asyncpg.create_pool(
-                url,
-                min_size=1,
-                max_size=5,
-                command_timeout=30,
-                init=_init_conn,
-            )
-            _backend = "postgres"
-        except Exception as e:  # noqa: BLE001
-            # A bad URL must not brick the bot: say why, then run locally.
-            print(f"[store] postgres unavailable ({e.__class__.__name__}: {e}) "
-                  f"- falling back to SQLite at {LOCAL_DB}")
-            _pool = None
-            _backend = "sqlite"
-    if _backend == "sqlite":
-        import aiosqlite
-        _sqlite = await aiosqlite.connect(LOCAL_DB)
-        _sqlite.row_factory = aiosqlite.Row
-    _ready = True
-    print(f"[store] connected — backend: {_backend}")
-    # Always ensure tables exist right after connecting
-    await init_schema()
+    """`?` -> `$1, $2, ...` (ignoring `?` inside single-quoted literals)."""
+    out: list[str] = []
+    n = 0
+    in_str = False
+    for ch in sql:
+        if ch == "'":
+            in_str = not in_str
+        if ch == "?" and not in_str:
+            n += 1
+            out.append(f"${n}")
+        else:
+            out.append(ch)
+    return "".join(out)
 
 
 async def _init_conn(conn: Any) -> None:
-    """Per-connection setup for asyncpg."""
-    for stmt in ("SET TIME ZONE 'UTC'",):
-        await conn.execute(stmt)
+    await conn.execute("SET TIME ZONE 'UTC'")
+
+
+async def connect() -> None:
+    """Open the Neon pool once and ensure the schema exists. Safe to repeat."""
+    global _pool
+    if _pool is not None:
+        return
+    async with _lock:
+        if _pool is not None:
+            return
+        url = neon_url()
+        if not url:
+            raise RuntimeError(
+                "NEON_DATABASE_URL is not set. Add your Neon connection string "
+                "to .env (or the GitHub Actions secret NEON_DATABASE_URL)."
+            )
+        import asyncpg
+
+        dsn, pooled = _clean_dsn(url)
+        last: Exception | None = None
+        for attempt in range(1, 4):  # Neon may be waking from scale-to-zero
+            try:
+                _pool = await asyncpg.create_pool(
+                    dsn,
+                    min_size=1,
+                    max_size=5,
+                    timeout=30,
+                    command_timeout=30,
+                    init=_init_conn,
+                    # PgBouncer (-pooler host) can't use prepared statements
+                    statement_cache_size=0 if pooled else 100,
+                )
+                break
+            except Exception as e:  # noqa: BLE001
+                last = e
+                print(f"[store] neon connect attempt {attempt}/3 failed: "
+                      f"{e.__class__.__name__}: {e}")
+                await asyncio.sleep(2 * attempt)
+        if _pool is None:
+            raise RuntimeError(f"Cannot connect to Neon: {last}")
+        print("[store] connected — backend: neon (postgres)")
+    await init_schema()
 
 
 async def close() -> None:
-    global _pool, _sqlite, _ready
+    global _pool
     if _pool is not None:
         await _pool.close()
         _pool = None
-    if _sqlite is not None:
-        await _sqlite.close()
-        _sqlite = None
-    _ready = False
-
-
-async def _conn() -> Any:
-    await connect()
-    if _backend == "postgres":
-        return _pool.acquire()
-    return _sqlite
 
 
 async def execute(sql: str, params: Sequence[Any] = ()) -> None:
     await connect()
-    if _backend == "postgres":
-        async with _pool.acquire() as conn:
-            await conn.execute(_fix(sql), *params)
-    else:
-        await _sqlite.execute(_fix(sql), tuple(params))
-        await _sqlite.commit()
+    async with _pool.acquire() as conn:
+        await conn.execute(_fix(sql), *params)
 
 
 async def fetchall(sql: str, params: Sequence[Any] = ()) -> list[dict]:
     await connect()
-    if _backend == "postgres":
-        async with _pool.acquire() as conn:
-            rows = await conn.fetch(_fix(sql), *params)
-        return [dict(r) for r in rows]
-    cur = await _sqlite.execute(_fix(sql), tuple(params))
-    return [dict(r) for r in await cur.fetchall()]
+    async with _pool.acquire() as conn:
+        rows = await conn.fetch(_fix(sql), *params)
+    return [dict(r) for r in rows]
 
 
 async def fetchone(sql: str, params: Sequence[Any] = ()) -> Optional[dict]:
@@ -141,16 +132,12 @@ async def fetchone(sql: str, params: Sequence[Any] = ()) -> Optional[dict]:
 async def run(sql: str, params: Sequence[Any] = ()) -> int:
     """INSERT/UPDATE/DELETE; returns affected rowcount."""
     await connect()
-    if _backend == "postgres":
-        async with _pool.acquire() as conn:
-            status = await conn.execute(_fix(sql), *params)
-            try:
-                return int(str(status).rsplit(" ", 1)[-1])
-            except ValueError:
-                return 0
-    cur = await _sqlite.execute(_fix(sql), tuple(params))
-    await _sqlite.commit()
-    return cur.rowcount
+    async with _pool.acquire() as conn:
+        status = await conn.execute(_fix(sql), *params)
+    try:
+        return int(str(status).rsplit(" ", 1)[-1])
+    except ValueError:
+        return 0
 
 
 # ── Schema ──────────────────────────────────────────────────────────
@@ -170,6 +157,13 @@ SCHEMA = [
         weight     REAL NOT NULL DEFAULT 1.0,
         created_at BIGINT NOT NULL,
         updated_at BIGINT NOT NULL DEFAULT 0
+    )""",
+    """CREATE TABLE IF NOT EXISTS lessons (
+        id         BIGSERIAL PRIMARY KEY,
+        user_id    BIGINT NOT NULL,
+        lesson     TEXT NOT NULL,
+        hits       INTEGER NOT NULL DEFAULT 0,
+        created_at BIGINT NOT NULL
     )""",
     """CREATE TABLE IF NOT EXISTS memory_profile (
         user_id    BIGINT PRIMARY KEY,
@@ -223,17 +217,32 @@ SCHEMA = [
 
 
 async def init_schema() -> None:
-    await connect()
-    for stmt in SCHEMA:
-        try:
-            await execute(stmt)
-        except Exception as e:  # noqa: BLE001
-            print(f"[store] schema failed on {stmt.split()[5][:24]!r}: {e}")
-            raise
+    global _pool
+    if _pool is None:
+        await connect()  # connect() calls init_schema() itself
+        return
+    async with _pool.acquire() as conn:
+        for stmt in SCHEMA:
+            try:
+                await conn.execute(stmt)
+            except Exception as e:  # noqa: BLE001
+                print(f"[store] schema failed: {e}")
+                raise
+
+
+# ── Trade log ───────────────────────────────────────────────────────
+
+async def log_paper_trade(symbol: str, side: str, qty: str, price: float,
+                          strategy: str = "", user_id: int = 0) -> None:
+    await execute(
+        """INSERT INTO trades
+           (user_id, symbol, side, qty, entry_price, status, strategy, paper, created_at)
+           VALUES (?, ?, ?, ?, ?, 'open', ?, 1, ?)""",
+        (user_id, symbol, side, str(qty), str(price), strategy, int(time.time())),
+    )
 
 
 # ── Key/value (settings, engine config, arbitrary state) ───────────
-
 
 async def kv_get(key: str, default: str = "") -> str:
     row = await fetchone("SELECT value FROM kv WHERE key=?", (key,))
@@ -241,21 +250,12 @@ async def kv_get(key: str, default: str = "") -> str:
 
 
 async def kv_set(key: str, value: str) -> None:
-    now = int(time.time())
-    if backend() == "postgres":
-        await execute(
-            """INSERT INTO kv(key,value,updated_at) VALUES(?,?,?)
-               ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value,
-                                             updated_at=EXCLUDED.updated_at""",
-            (key, value, now),
-        )
-    else:
-        await execute(
-            """INSERT INTO kv(key,value,updated_at) VALUES(?,?,?)
-               ON CONFLICT(key) DO UPDATE SET value=excluded.value,
-                                             updated_at=excluded.updated_at""",
-            (key, value, now),
-        )
+    await execute(
+        """INSERT INTO kv(key,value,updated_at) VALUES(?,?,?)
+           ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value,
+                                         updated_at=EXCLUDED.updated_at""",
+        (key, value, int(time.time())),
+    )
 
 
 async def kv_all(prefix: str = "") -> dict[str, str]:

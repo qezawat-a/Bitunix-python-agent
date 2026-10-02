@@ -55,7 +55,7 @@ BITUNIX_WS_PUBLIC=wss://fapi.bitunix.com/public/
 BITUNIX_WS_PRIVATE=wss://fapi.bitunix.com/private/
 
 # ── Database & Logging ───────────
-DATABASE_PATH=./data/agent.db
+NEON_DATABASE_URL=postgresql://user:pass@host/db?sslmode=require
 LOG_LEVEL=INFO
 LOG_FILE=./logs/agent.log
 ```

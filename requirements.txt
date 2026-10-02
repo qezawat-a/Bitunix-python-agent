@@ -21,8 +21,7 @@ numpy>=2.1
 pandas>=2.2.3
 
 # Database
-aiosqlite>=0.20
-asyncpg>=0.29          # Postgres / Neon support
+asyncpg>=0.29          # Neon (Postgres) — the only database
 
 # Config / Env
 python-dotenv>=1.0

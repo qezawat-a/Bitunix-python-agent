@@ -214,8 +214,7 @@ Tested providers: OpenAI, Anthropic, DeepSeek, Groq, OpenRouter, Google, local (
 ## Persistent Storage
 
 All settings changed via Telegram commands are saved to:
-- **Local**: `data/store.db` (SQLite, default)
-- **Cloud**: Neon Postgres (set `NEON_DATABASE_URL` in `.env`)
+- **Neon Postgres only** — set `NEON_DATABASE_URL` in `.env` (required)
 
 With Neon, agent memory + trader history + settings survive across machines (GitHub Actions, VPS, etc.).
 
@@ -224,7 +223,7 @@ With Neon, agent memory + trader history + settings survive across machines (Git
 ## Deploy on GitHub Actions (Free)
 
 1. Go to repo → **Settings** → **Secrets and variables** → **Actions**
-2. Add secrets: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_ADMIN_IDS`, `AI_BASE_URL`, `AI_API_KEY`, `BITUNIX_API_KEY`, `BITUNIX_SECRET_KEY`
+2. Add secrets: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_ADMIN_IDS`, `AI_BASE_URL`, `AI_API_KEY`, `BITUNIX_API_KEY`, `BITUNIX_SECRET_KEY`, `NEON_DATABASE_URL`
 3. Go to **Actions** tab → **Run Bot (Manual)** → **Run workflow**
 4. Bot runs for up to 6 hours (free tier: 2000 min/month)
 

@@ -51,9 +51,8 @@ class Config:
     PAPER_TRADING: bool = os.getenv("PAPER_TRADING", "true").lower() == "true"
 
     # ── Database ──────────────────────────────────────────
-    DATABASE_PATH: str = os.getenv("DATABASE_PATH", "./data/agent.db")
-    # Neon / any Postgres. When set, the whole agent + trader state moves off
-    # local files and into this one database. Leave empty for local SQLite.
+    # Neon (Postgres) is the only database: agent memory, settings and trades.
+    # Required — the bot refuses to start without it.
     NEON_DATABASE_URL: str = os.getenv("NEON_DATABASE_URL", "")
 
     # ── Logging ───────────────────────────────────────────

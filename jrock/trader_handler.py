@@ -2,7 +2,7 @@
 Complete Bitunix trader Telegram handler.
 
 Every command the user requested from day one is here.
-Settings are persisted via jrock.store (SQLite or Neon) so they
+Settings are persisted via jrock.store (Neon) so they
 survive restarts — no re-typing every session.
 
 Dispatch table at the top; each sub-command is its own function.

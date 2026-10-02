@@ -44,8 +44,7 @@ jobs:
           DEFAULT_LEVERAGE=10
           RISK_PERCENT=2.0
           PAPER_TRADING=true
-          DATABASE_PATH=./data/agent.db
-          NEON_DATABASE_URL=
+          NEON_DATABASE_URL=${{ secrets.NEON_DATABASE_URL }}
           LOG_LEVEL=INFO
           LOG_FILE=./logs/agent.log
           ENV_EOF
