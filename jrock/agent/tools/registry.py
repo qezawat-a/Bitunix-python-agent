@@ -43,14 +43,19 @@ def build_registry() -> dict[str, Tool]:
         Tool("terminal_run", "Run a shell command on the machine where the bot runs. "
              "Use for git, pip, tests, system inspection. Requires user approval.",
              _p({"command": S}, ["command"]), terminal.run, dangerous=True),
-        Tool("file_read", "Read a file (UTF-8, truncated).", _p({"path": S}, ["path"]), fs.read_file),
+        Tool("file_read", "Read a file with line numbers. Optional start_line/end_line. "
+             "The header says total lines and whether output was TRUNCATED - if so, read the rest.",
+             _p({"path": S, "start_line": S, "end_line": S}, ["path"]), fs.read_file),
         Tool("file_write", "Write/create a file with content.", _p({"path": S, "content": S},
              ["path", "content"]), fs.write_file, dangerous=True),
         Tool("file_edit", "Replace an exact string in a file.", _p({"path": S, "old": S, "new": S},
              ["path", "old", "new"]), fs.edit_file, dangerous=True),
         Tool("file_list", "List files/directories.", _p({"path": S}), fs.list_dir),
-        Tool("file_search", "Search files by regex or substring.", 
+        Tool("file_search", "Search files by regex or substring. Returns every matching line.",
              _p({"query": S, "path": S}, ["query"]), fs.search),
+        Tool("find_usages", "Find every import/reference of a symbol or module name. "
+             "Run this before claiming something is a bug or dead code.",
+             _p({"symbol": S, "path": S}, ["symbol"]), fs.find_usages),
         Tool("web_search", "Search the web.", _p({"query": S}, ["query"]), web.search),
         Tool("web_fetch", "Fetch a URL and return readable text.",
              _p({"url": S}, ["url"]), web.fetch),
@@ -98,7 +103,7 @@ async def _skill_read(args: dict, ctx: AgentContext) -> str:
 
 
 async def _memory_store(args: dict, ctx: AgentContext) -> str:
-    if not ctx.s.learning:
+    if not ctx.settings.learning:
         return "Learning is off; memory not stored."
     if ctx.memory:
         await ctx.memory.store(ctx.user_id, args.get("fact", ""))
