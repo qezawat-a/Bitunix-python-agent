@@ -18,6 +18,7 @@ import json
 from typing import Any, Dict, List, Optional
 
 import httpx
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
 from config import Config
 from trader.api.auth import canonical_body, make_headers
@@ -75,6 +76,12 @@ class BitunixRestClient:
     def __init__(self):
         self._client = httpx.AsyncClient(base_url=_BASE, timeout=_TIMEOUT)
 
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=1, max=10),
+        retry=retry_if_exception_type((httpx.TimeoutException, httpx.NetworkError)),
+        reraise=True,
+    )
     async def _get(self, path: str, params: Dict[str, Any] | None = None) -> Dict[str, Any]:
         # httpx appends `params` to the URL; those are exactly the values the
         # signature covers.
@@ -82,6 +89,12 @@ class BitunixRestClient:
         resp.raise_for_status()
         return _ok(resp.json())
 
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=1, max=10),
+        retry=retry_if_exception_type((httpx.TimeoutException, httpx.NetworkError)),
+        reraise=True,
+    )
     async def _post(self, path: str, body: Dict[str, Any]) -> Dict[str, Any]:
         # Send the exact compact bytes that auth.canonical_body signs. Do NOT
         # use httpx's json= here: it re-serialises with default json.dumps

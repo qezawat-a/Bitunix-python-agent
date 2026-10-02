@@ -1,0 +1,60 @@
+# ═══════════════════════════════════════════════════════════════════
+# J-Rock AI Agent + Bitunix Trader Bot  —  Environment Configuration
+# Copy this file to .env and fill in your values
+# ═══════════════════════════════════════════════════════════════════
+
+# ── Telegram ─────────────────────────────────────────────────────
+TELEGRAM_BOT_TOKEN=8800573659:AAG7pyAonepBe1-x-6Ol2dKJlhnFY6zuAkA
+TELEGRAM_ADMIN_IDS=8368047336              # your Telegram user ID
+
+# ── AI Provider ──────────────────────────────────────────────────
+# Works with ANY OpenAI-compatible endpoint.
+# Leave AI_MODEL blank — the bot auto-discovers the best model for your key.
+AI_BASE_URL=https://api.inceptionlabs.ai/v1    # or https://api.openai.com/v1
+AI_API_KEY=sk_6d258a09d28a5f2043dccfd823198519                         # your API key
+AI_MODEL=mercury-2.5                                 # blank = auto-detect
+AI_MAX_TOKENS=32768
+AI_TEMPERATURE=1.0
+
+# Optional extra provider keys (agent will test all and pick the best):
+# OPENAI_API_KEY=sk-...
+# ANTHROPIC_API_KEY=sk-ant-...
+# DEEPSEEK_API_KEY=sk-...
+# GROQ_API_KEY=gsk_...
+# OPENROUTER_API_KEY=sk-or-...
+
+# ── Bitunix Futures API ───────────────────────────────────────────
+BITUNIX_API_KEY=8f595df10b52d3bd1a324f6c64aa4c34
+BITUNIX_SECRET_KEY=59d0c38837b56faa7cb9c945c691cbe9
+BITUNIX_BASE_URL=https://fapi.bitunix.com
+BITUNIX_WS_PUBLIC=wss://fapi.bitunix.com/public/
+BITUNIX_WS_PRIVATE=wss://fapi.bitunix.com/private/
+
+# ── Trading Engine Defaults ───────────────────────────────────────
+# All of these can be changed live via Telegram without restarting.
+# Settings changed via Telegram are saved and loaded on next start.
+
+TRADING_ENABLED=false                    # must be true for live trading
+DEFAULT_SYMBOL=MOVRUSDT
+DEFAULT_MARGIN_COIN=USDT
+DEFAULT_LEVERAGE=25
+DEFAULT_MARGIN_MODE=CROSS                # CROSS | ISOLATION
+DEFAULT_POSITION_MODE=HEDGE              # HEDGE | ONE_WAY
+RISK_PERCENT=35.0                      # % of balance per trade
+MAX_OPEN_POSITIONS=1
+PAPER_TRADING=false                     # true = no real orders placed
+
+# ── Database ──────────────────────────────────────────────────────
+DATABASE_PATH=./data/agent.db
+
+# Neon (Postgres) — all agent + trader data in one place, survives redeploys.
+# When set, SQLite is ignored. Leave blank for local SQLite.
+NEON_DATABASE_URL=postgresql://neondb_owner:npg_pXUqvNZ1mMS2@ep-nameless-boat-b40ofvrz-pooler.c-6.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require                      # postgresql://user:pass@host/dbname
+
+# ── Logging ───────────────────────────────────────────────────────
+LOG_LEVEL=INFO
+LOG_FILE=./logs/agent.log
+
+# ── Generator ─────────────────────────────────────────────────────
+IMAGE_PROVIDER=openai                    # openai | stabilityai
+TTS_PROVIDER=openai                      # openai | elevenlabs

@@ -39,6 +39,16 @@ class EngineConfig:
     def __post_init__(self):
         if self.timeframes is None:
             self.timeframes = [self.interval]
+        # Input validation
+        self.leverage      = max(1, min(125, self.leverage))
+        self.risk_pct      = max(0.1, min(100.0, self.risk_pct))
+        self.max_positions = max(1, min(50, self.max_positions))
+        self.consensus_threshold = max(1, self.consensus_threshold)
+        self.min_confidence = max(0.0, min(1.0, self.min_confidence))
+        if self.margin_mode not in ("CROSS", "ISOLATION"):
+            self.margin_mode = "CROSS"
+        if self.position_mode not in ("HEDGE", "ONE_WAY"):
+            self.position_mode = "HEDGE" 
     
     # TPSL config
     breakeven_threshold_pct: float = 2.0
@@ -64,16 +74,19 @@ class ManagedPosition:
     unrealized_pnl_pct: float = 0.0
     best_price: float = 0.0
     
-    def init_tpsl(self, atr: float) -> None:
-        """Initialize TPSL for this position."""
+    def init_tpsl(self, atr: float, cfg=None) -> None:
+        """Initialize TPSL using values from EngineConfig (not Config class)."""
         self.best_price = self.entry_price
+        be  = cfg.breakeven_threshold_pct  if cfg else 2.0
+        tri = cfg.trailing_trigger_roi_pct if cfg else 5.0
+        trs = cfg.trailing_stop_pct        if cfg else 0.5
         self.tpsl = PositionTPSL(
             entry_price=self.entry_price,
             side=self.side,
             atr_value=atr,
-            breakeven_threshold_pct=Config.BREAKEVEN_THRESHOLD_PCT,
-            trailing_trigger_roi_pct=Config.TRAILING_TRIGGER_ROI_PCT,
-            trailing_stop_pct=Config.TRAILING_STOP_PCT,
+            breakeven_threshold_pct=be,
+            trailing_trigger_roi_pct=tri,
+            trailing_stop_pct=trs,
         )
     
     def update_price(self, price: float, pnl_pct: float) -> Dict[str, Any]:
@@ -273,7 +286,7 @@ class TradingEngine:
                                        df["close"].astype(float), 
                                        length=14)
                     atr_val = float(atr_series.iloc[-1])
-                    pos.init_tpsl(atr_val)
+                    pos.init_tpsl(atr_val, self.cfg)
                 
                 self._open_positions[pos_id] = pos
                 self._notify(f"✅ *New Position*\n"

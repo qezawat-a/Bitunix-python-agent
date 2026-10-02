@@ -91,6 +91,16 @@ class Config:
         cls.AI_BASE_URL = os.getenv("AI_BASE_URL", cls.AI_BASE_URL)
         cls.BITUNIX_API_KEY = os.getenv("BITUNIX_API_KEY", "")
         cls.BITUNIX_SECRET_KEY = os.getenv("BITUNIX_SECRET_KEY", "")
+        cls.DEFAULT_SYMBOL = os.getenv("DEFAULT_SYMBOL", cls.DEFAULT_SYMBOL)
+        cls.DEFAULT_LEVERAGE = int(os.getenv("DEFAULT_LEVERAGE", str(cls.DEFAULT_LEVERAGE)))
+        cls.DEFAULT_MARGIN_MODE = os.getenv("DEFAULT_MARGIN_MODE", cls.DEFAULT_MARGIN_MODE)
+        cls.DEFAULT_POSITION_MODE = os.getenv("DEFAULT_POSITION_MODE", cls.DEFAULT_POSITION_MODE)
+        cls.RISK_PERCENT = float(os.getenv("RISK_PERCENT", str(cls.RISK_PERCENT)))
+        cls.MAX_OPEN_POSITIONS = int(os.getenv("MAX_OPEN_POSITIONS", str(cls.MAX_OPEN_POSITIONS)))
+        cls.PAPER_TRADING = os.getenv("PAPER_TRADING", str(cls.PAPER_TRADING)).lower() == "true"
+        cls.TRADING_ENABLED = os.getenv("TRADING_ENABLED", str(cls.TRADING_ENABLED)).lower() == "true"
+        # Clear lru_cache so get_config() returns fresh values
+        get_config.cache_clear()
 
 
 @lru_cache(maxsize=1)

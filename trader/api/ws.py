@@ -116,9 +116,12 @@ class BitunixWSClient:
             try:
                 async with websockets.connect(self._public_url) as ws:
                     self._pub_ws = ws
+                    self._connected_pub = True
                     logger.info("WS public connected")
+                    # Re-subscribe on every connect (handles reconnects too)
                     await self._send_subscribe(ws, self._public_subscriptions)
                     await self._message_loop(ws)
+                    self._connected_pub = False
             except (ConnectionClosed, OSError) as e:
                 logger.warning(f"WS public disconnected: {e}, reconnecting in {self.RECONNECT_DELAY}s")
                 await asyncio.sleep(self.RECONNECT_DELAY)
@@ -128,10 +131,13 @@ class BitunixWSClient:
             try:
                 async with websockets.connect(self._private_url) as ws:
                     self._priv_ws = ws
+                    self._connected_priv = True
                     logger.info("WS private connected")
                     await self._login(ws)
+                    # Re-subscribe on every connect (handles reconnects too)
                     await self._send_subscribe(ws, self._private_subscriptions)
                     await self._message_loop(ws)
+                    self._connected_priv = False
             except (ConnectionClosed, OSError) as e:
                 logger.warning(f"WS private disconnected: {e}, reconnecting in {self.RECONNECT_DELAY}s")
                 await asyncio.sleep(self.RECONNECT_DELAY)
