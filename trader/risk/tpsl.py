@@ -186,6 +186,53 @@ class PositionTPSL:
             # would report an instant TP hit on the very first update.
             self.tp_price = None
 
+        self._sanitise_levels()
+
+    def _sanitise_levels(self) -> None:
+        """Force SL and TP onto their correct side of entry.
+
+        A long's stop MUST sit below entry and its target above; a short's the
+        reverse. If the two ever cross — because a caller passed levels built
+        with the wrong side, or a side string was misread — the stop is armed on
+        the profitable side of entry and fires on the very next favourable
+        tick. That is not a slow leak, it closes the position instantly at the
+        worst moment, and it is exactly what happened in production: an adopted
+        position got TP 0.0735 below an entry of 0.0750 and SL 0.0757 above it,
+        and was closed out for -0.101 USDT.
+
+        Correct the geometry here, once, so no caller can produce a position
+        whose stop is on the wrong side.
+        """
+        long = self.side == "LONG"
+        tick = 10 ** -self.quote_precision
+
+        if self.sl_price is not None:
+            # Stop must be strictly on the losing side of entry.
+            if long and self.sl_price >= self.entry_price:
+                self.sl_price = self.entry_price - max(self.atr, tick)
+            elif not long and self.sl_price <= self.entry_price:
+                self.sl_price = self.entry_price + max(self.atr, tick)
+
+        if self.tp_price is not None:
+            # Target must be strictly on the winning side, and beyond the stop
+            # so the two can never overlap or read as inverted.
+            if long:
+                if self.tp_price <= self.entry_price:
+                    self.tp_price = self.entry_price + max(self.atr, tick) * 2
+            else:
+                if self.tp_price >= self.entry_price:
+                    self.tp_price = self.entry_price - max(self.atr, tick) * 2
+
+        # R:R must be at least 1:1, otherwise the levels crossed somewhere and
+        # re-establishing them with a sane geometry is cheaper than the trade.
+        if self.tp_price is not None and self.sl_price is not None:
+            risk = abs(self.entry_price - self.sl_price)
+            if risk > 0:
+                reward = abs(self.tp_price - self.entry_price)
+                if reward < risk:
+                    self.tp_price = (self.entry_price + 2 * risk if long
+                                     else self.entry_price - 2 * risk)
+
     # ── Partial ladder ──────────────────────────────────────────────────
 
     def _build_ladder(self) -> List[TPSLLevel]:

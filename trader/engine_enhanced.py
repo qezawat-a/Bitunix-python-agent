@@ -103,6 +103,29 @@ _TF_MINUTES = {
 }
 
 
+def _norm_side(raw: Any, default: str = "LONG") -> str:
+    """Normalise an exchange position side to the engine's LONG/SHORT vocabulary.
+
+    Position state is read back from two places — the private WS `OPEN` push
+    and REST `get_pending_positions` — and neither is guaranteed to use the
+    same words the engine internally reasons in. Bitunix reports `side` as
+    BUY/SELL on some routes and LONG/SHORT on others.
+
+    Storing the raw string made every downstream `side == "LONG"` test false
+    for a long position, so it took the short branch in ALL of them at once:
+    the TP was built BELOW entry, the SL ABOVE entry, PNL was signed backwards,
+    and breakeven could never fire. A position adopted at startup got an
+    instantly-armed stop above its entry and was closed out on the next tick.
+    This is the single function that makes both vocabularies safe.
+    """
+    s = str(raw or "").strip().upper()
+    if s in ("BUY", "LONG"):
+        return "LONG"
+    if s in ("SELL", "SHORT"):
+        return "SHORT"
+    return default
+
+
 def _opt_float(value: Any) -> Optional[float]:
     """Parse a REST numeric field that arrives as a string, or may be absent.
 
@@ -323,7 +346,23 @@ class TradingEngine:
             total_margin += pos.margin or 0.0
 
         acct = self._last_account or {}
-        equity = acct.get("equity") or (acct.get("available", 0.0) + total_upnl)
+        # A negative equity would flip the sign of the displayed percentage and
+        # report a losing position as a +100% gain, which is exactly what
+        # happened: equity came back negative while the PNL was a real loss.
+        # Fall back to the margin actually committed, and finally to zero, so
+        # the ratio can never invert.
+        equity = _opt_float(acct.get("equity")) or 0.0
+        if equity <= 0:
+            equity = total_margin or max(
+                _opt_float(acct.get("available")) or 0.0, 0.0)
+        pct = 0.0
+        if equity > 0:
+            pct = total_upnl / equity * 100.0
+            # Last line of defence: PNL and its percentage must never disagree
+            # in sign. If they do, one of the two inputs is wrong, so show the
+            # percentage as unknown rather than as a confident wrong number.
+            if total_upnl and (pct > 0) != (total_upnl > 0):
+                pct = 0.0
         return {
             "running": self._running,
             "paper": self.cfg.paper,
@@ -333,7 +372,7 @@ class TradingEngine:
             "signal": sig,
             "positions": positions,
             "total_pnl_usdt": round(total_upnl, 4),
-            "total_pnl_pct": round(total_upnl / equity * 100, 2) if equity else 0.0,
+            "total_pnl_pct": round(pct, 2),
             "account": acct,
             "candles": {tf: len(v) for tf, v in self._klines.items()},
         }
@@ -621,7 +660,7 @@ class TradingEngine:
             pos = ManagedPosition(
                 position_id=pos_id,
                 symbol=str(data.get("symbol", self.cfg.symbol)),
-                side=str(data.get("side", "LONG")),
+                side=_norm_side(data.get("side"), "LONG"),
                 qty=str(data.get("qty", "0")),
                 entry_price=entry,
                 opened_at=int(data.get("ctime", 0) or time.time() * 1000),
@@ -1165,9 +1204,15 @@ class TradingEngine:
         """Record a simulated fill so /trader history has something to show."""
         await _db_log_paper_trade(self.cfg.symbol, side, qty, price, reason)
 
-    async def _load_pair(self) -> Dict[str, Any]:
-        """Fetch and cache the symbol's trading_pairs row (precision + limits)."""
-        if self._pair:
+    async def _load_pair(self, force: bool = False) -> Dict[str, Any]:
+        """Fetch and cache the symbol's trading_pairs row (precision + limits).
+
+        `force` re-reads the exchange even when a row is already cached. The
+        cache is per-engine, but precision is per-PAIR, so switching symbols has
+        to bust it — otherwise the new symbol silently keeps the old symbol's
+        quotePrecision and every price renders truncated.
+        """
+        if self._pair and not force:
             return self._pair
         try:
             resp = await self.rest.get_trading_pairs(self.cfg.symbol)
@@ -1370,7 +1415,7 @@ class TradingEngine:
                 pos = ManagedPosition(
                     position_id=pid,
                     symbol=str(row.get("symbol", self.cfg.symbol)),
-                    side=str(row.get("side", "LONG")),
+                    side=_norm_side(row.get("side"), "LONG"),
                     qty=str(row.get("qty", "0")),
                     entry_price=entry,
                     opened_at=int(row.get("ctime", 0) or time.time() * 1000),
@@ -1465,7 +1510,7 @@ class TradingEngine:
             liq = _opt_float(row.get("liqPrice")) or 0.0
             if liq <= 0:
                 continue
-            side = str(row.get("side", "LONG")).upper()
+            side = _norm_side(row.get("side"), "LONG")
             entry = _opt_float(row.get("avgOpenPrice")) or 0.0
             qty = _opt_float(row.get("qty")) or 0.0
             margin = _opt_float(row.get("margin")) or 0.0

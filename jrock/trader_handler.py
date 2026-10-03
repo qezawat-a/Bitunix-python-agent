@@ -628,9 +628,15 @@ def format_report(e) -> str:
     for p in snap.get("positions") or []:
         flags = (" 🎯BE" if p["breakeven"] else "") + (" 📈Trail" if p["trailing"] else "")
         danger = " 🚨SL>LIQ" if p.get("sl_beyond_liq") else ""
-        lines.append(f"• `{p['symbol']}` {p['side']} "
+        # SL/TP/entry go out at the pair's own quotePrecision. Raw floats printed
+        # 17 significant digits ("0.07574929121466055") — unreadable, and it hid
+        # the fact that the stop was sitting on the wrong side of entry.
+        sl = f"{p['sl']:.{qp}f}" if p.get("sl") else "—"
+        tp = f"{p['tp']:.{qp}f}" if p.get("tp") else "—"
+        entry = f"{p['entry']:.{qp}f}" if p.get("entry") else "—"
+        lines.append(f"• `{p['symbol']}` {p['side']} `{entry}` "
                      f"`{p['pnl_usdt']:+.4f}` ({p['pnl_pct']:+.2f}%) "
-                     f"SL:`{p['sl'] or '—'}` TP:`{p['tp'] or '—'}`{flags}{danger}")
+                     f"SL:`{sl}` TP:`{tp}`{flags}{danger}")
     # Total PNL always, positions or not — the number that matters.
     lines.append(f"Total PNL: `{snap.get('total_pnl_usdt', 0):+.4f}` "
                  f"({snap.get('total_pnl_pct', 0):+.2f}%)")
@@ -1022,7 +1028,19 @@ async def _set_symbol(args: str, update: Update, ctx) -> str:
         return f"Current symbol: `{await _kv_get('t/symbol', Config.DEFAULT_SYMBOL)}`"
     await _kv_set("t/symbol", sym)
     e = _engine(ctx)
-    if e: e.cfg.symbol = sym
+    if e:
+        e.cfg.symbol = sym
+        # Reload the pair spec. quotePrecision/basePrecision are PER PAIR —
+        # SANDUSDT trades at 5 decimals, a BTC-priced symbol at 2 — so without
+        # this the new symbol keeps the old symbol's precision, or the 2-decimal
+        # default, and every price, SL and TP prints truncated ("0.08" for
+        # 0.08351). The klines for the new symbol must be pulled too, otherwise
+        # the engine keeps evaluating strategies on the previous symbol's bars.
+        try:
+            await e._load_pair(force=True)
+            await e._backfill_klines()
+        except Exception as ex:
+            return f"⚠️ Symbol set to `{sym}` but pair info failed: `{ex}`"
     return f"✅ Symbol: `{sym}`"
 
 
