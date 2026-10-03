@@ -603,6 +603,36 @@ class TradingEngine:
                 pass
         return self._last_price
 
+    def _to_dataframe(self, tf: str = None) -> Optional[pd.DataFrame]:
+        """Turn a timeframe's candle buffer into the DataFrame strategies expect.
+
+        The contract is in BaseStrategy.generate: columns open/high/low/close
+        plus baseVol, sorted ASCENDING by time, oldest first. Indicators read the
+        last row as "now", so a reversed frame would make every signal look at
+        the oldest bar instead of the newest.
+        """
+        tf = tf or self.cfg.interval
+        rows = self._klines.get(tf) or []
+        if not rows:
+            return None
+        # Sort by candle open time rather than trusting arrival order: the WS
+        # upserts in place, but a backfill followed by a live push for an older
+        # bucket can otherwise land out of sequence.
+        rows = sorted(rows, key=lambda r: r.get("timestamp", 0))
+        df = pd.DataFrame(rows, columns=[
+            "timestamp", "open", "high", "low", "close", "baseVol", "quoteVol",
+        ])
+        for col in ("open", "high", "low", "close", "baseVol", "quoteVol"):
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+        df = df.dropna(subset=["open", "high", "low", "close"])
+        # A DatetimeIndex lets callers reason about bar spacing; the timestamp
+        # column stays so nothing has to guess it from the index.
+        try:
+            df.index = pd.to_datetime(df["timestamp"], unit="ms")
+        except Exception:
+            df = df.reset_index(drop=True)
+        return df
+
     def _atr(self, tf: str = None) -> float:
         """Latest ATR, or a small fraction of price when unavailable."""
         from trader import indicators as ta
@@ -857,6 +887,11 @@ class TradingEngine:
             self._notify(f"❌ Order failed: [{e.code}] {e.msg}")
             self._latest_signal["opened"] = False
             self._latest_signal["error"] = f"[{e.code}] {e.msg}"
+
+    async def _log_paper_trade(self, side: str, qty: str, price: float,
+                               sl: float, tp: float, reason: str) -> None:
+        """Record a simulated fill so /trader history has something to show."""
+        await _db_log_paper_trade(self.cfg.symbol, side, qty, price, reason)
 
     async def _load_pair(self) -> Dict[str, Any]:
         """Fetch and cache the symbol's trading_pairs row (precision + limits)."""
