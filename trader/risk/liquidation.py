@@ -131,3 +131,45 @@ def calc_liquidation(
 def is_near_liquidation(margin_ratio: float, threshold: float = 1.15) -> bool:
     """Return True if position is approaching liquidation."""
     return margin_ratio < threshold
+
+
+def calc_liquidation_cross(
+    avg_entry: float,
+    side: str,                 # 'LONG' | 'SHORT'
+    qty: float,
+    balance: float,
+    notional: Optional[float] = None,
+) -> float:
+    """Liquidation price for a CROSS-margin position.
+
+    Under CROSS the whole account balance backs every position, so the isolated
+    formula UNDERSTATES the real liquidation distance — badly so at high
+    leverage on a small account, which is exactly how a stop-loss ends up
+    parked beyond the liquidation price and never fires.
+
+    Cross equity is `balance + unrealised PnL`, and liquidation happens when
+    that falls to the maintenance margin:
+
+        LONG   balance + (p - entry)*qty = entry*qty*mmr
+               => p = entry*(1 + mmr) - balance/qty
+        SHORT  balance + (entry - p)*qty = entry*qty*mmr
+               => p = entry*(1 - mmr) + balance/qty
+
+    Note the `balance/qty` term: the smaller the position, the further away
+    liquidation sits. Sizing and liquidation have to be solved together.
+
+    `balance` should be the balance actually at risk. Passing `available`
+    rather than total equity deliberately UNDER-states the real cross buffer,
+    which pulls the computed liq price closer to entry. That errs toward a
+    tighter stop, which is the safe direction to be wrong in.
+    """
+    if qty <= 0:
+        return 0.0
+    notional_val = notional or (avg_entry * qty)
+    mmr = get_mmr(notional_val)
+    # Accept the exchange's own vocabulary too. Anything that is not a long
+    # falls into the short branch, so a "BUY" reaching here silently returned a
+    # liquidation price ABOVE entry — the exact inversion this guards against.
+    if str(side).strip().upper() in ("LONG", "BUY"):
+        return avg_entry * (1 + mmr) - balance / qty
+    return avg_entry * (1 - mmr) + balance / qty

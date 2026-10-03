@@ -82,6 +82,17 @@ in-memory snapshot, so it costs **zero** exchange API calls and answers
 instantly — status, the periodic report, current price, the last signal with its
 confidence and which strategies voted, and per-position PNL for anything open.
 
+It also always reports **total account PNL** — in USDT *and* as a percentage of
+equity — plus equity, available balance and margin used. If any open position
+has its stop-loss sitting beyond its liquidation price, it flags that with
+`🚨 SL is beyond liquidation`, because the exchange would liquidate you before
+the stop could ever fire.
+
+If a signal was rejected (higher-timeframe trend veto, or max positions
+reached), the reason is shown next to the signal — the strategies still run and
+the signal is still reported, so you can see what the market was doing even
+when no trade was taken.
+
 ### Reporting
 
 | Command | What it does |
@@ -245,6 +256,62 @@ is rejected rather than sent as dust.
 The calculator also returns the resulting notional, required margin, and both
 long/short liquidation prices, using the tiered maintenance margin rate from
 `GET /api/v1/futures/account/get_position_tiers`.
+
+---
+
+## Risk: Sizing and Liquidation
+
+Position size and stop-loss are **solved together**, not one after the other.
+This matters more than it sounds, because under CROSS the liquidation price
+carries a `balance / qty` term:
+
+```
+LONG   liq = entry × (1 + MMR) − balance / qty
+SHORT  liq = entry × (1 − MMR) + balance / qty
+```
+
+The isolated formula (`entry × (1 ∓ 1/leverage ± MMR)`) does **not** apply in
+cross — it ignores that the whole account backs the position, and it
+understates the real liquidation distance. At 40x on a small account the two
+disagree enough to matter.
+
+Because `liq` depends on `qty` and the stop must stay *inside* `liq`, the engine
+iterates: pick the ATR stop → pull it inside the liquidation price with a
+safety buffer → re-solve the quantity so the loss at that stop equals
+`balance × risk%` → repeat until stable. Two consequences:
+
+- **The stop can never sit beyond liquidation.** A stop out past the liq price
+  is dead code — the exchange closes you first, so it can never fire. This was
+  a real bug: an ATR-derived stop at 40x landed 10.5% from entry while
+  liquidation was 8.8% away.
+- **`liq_distance` is a real setting, not a warning.** `/trader liq_distance 0.5`
+  keeps the stop 0.5% of the way *inside* the liquidation price, so a tighter
+  value means a tighter stop. The trade is rejected rather than sent if the
+  risk budget cannot afford the exchange's minimum quantity.
+
+Take-profit is then set at 2R against the stop actually placed, not the ATR
+stop that was originally wanted.
+
+The liquidation numbers computed here are estimates from the tier table; the
+engine prefers the `liqPrice` that comes back from REST when one is available.
+
+---
+
+## Signal Filtering
+
+A signal only becomes a trade if it survives two filters:
+
+- **Higher-timeframe trend veto.** The highest configured timeframe above the
+  signal's own (EMA-20 vs EMA-50, with a 0.05% noise gate) sets the permitted
+  direction. A 1m short into a 15m uptrend is blocked. The signal is still
+  computed and reported — only the trade is skipped — so `/signal` keeps
+  showing what the market is doing. Without this the bot will happily take
+  counter-trend entries all day.
+- **Max open positions.** Signals are still evaluated and recorded at the
+  limit, for the same reason.
+
+Confidence is capped at 95% — a 100% reading from a handful of agreeing
+indicators is a statement about the sample, not certainty.
 
 ---
 

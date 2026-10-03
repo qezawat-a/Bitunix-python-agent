@@ -15,8 +15,10 @@ from trader.api.rest import BitunixRestClient, BitunixError, account_dict
 from trader.api.ws import BitunixWSClient, interval_from_channel
 from trader.strategies import ALL_STRATEGIES, BaseStrategy, Direction, Signal
 from trader.risk.calculator import (calc_order_unit, atr_stop_loss, atr_take_profit,
-                                    price_precision, OrderUnitError, OrderUnit)
-from trader.risk.liquidation import calc_liquidation, is_near_liquidation, set_tiers
+                                    price_precision, OrderUnitError, OrderUnit,
+                                    _floor_to)
+from trader.risk.liquidation import (calc_liquidation, calc_liquidation_cross,
+                                      get_mmr, is_near_liquidation, set_tiers)
 from trader.risk.tpsl import (AccountGuard, PositionTPSL, TPSLAction,
                               TPSLMethod, TPSLUpdate)
 
@@ -37,7 +39,33 @@ class EngineConfig:
     min_confidence: float = 0.5
     timeframes: list = None          # e.g. ["1m","3m","5m","15m"] — scans all
     tf_min_confidence: float = 0.6   # per-timeframe min confidence
-    
+
+    # TPSL config. These MUST stay above __post_init__: @dataclass only promotes
+    # an annotated class attribute into a field, and an annotation that sits
+    # below a method definition is still collected — but as a plain attribute
+    # with no annotation it is not, so it silently fell out of __init__ and
+    # /trader start raised TypeError on every TPSL keyword.
+    breakeven_threshold_pct: float = 2.0
+    trailing_trigger_roi_pct: float = 5.0
+    trailing_stop_pct: float = 0.5
+    trailing_distance: float = 0.3
+    # Which of Bitunix's four TPSL methods: POSITION | PARTIAL | TRAILING | ACCOUNT
+    tpsl_method: str = "POSITION"
+    # Trailing retrace mode: RATIO (pct off peak) | INTERVAL (abs off peak)
+    trailing_method: str = "RATIO"
+    # Account-level TP/SL in USDT; 0 disables that side.
+    account_tp: float = 0.0
+    account_sl: float = 0.0
+    # Warn when price is within this percent of the exchange's liqPrice.
+    liq_distance_pct: float = 5.0
+    # Periodic loops, in seconds.
+    scan_interval: float = 15.0
+    guard_interval: float = 15.0
+    mid_interval: float = 15.0
+    # Cached from trading_pairs.
+    base_precision: int = 3
+    quote_precision: int = 2
+
     def __post_init__(self):
         if self.timeframes is None:
             self.timeframes = [self.interval]
@@ -50,27 +78,29 @@ class EngineConfig:
         if self.margin_mode not in ("CROSS", "ISOLATION"):
             self.margin_mode = "CROSS"
         if self.position_mode not in ("HEDGE", "ONE_WAY"):
-            self.position_mode = "HEDGE" 
-    
-    # TPSL config
-    breakeven_threshold_pct: float = 2.0
-    trailing_trigger_roi_pct: float = 5.0
-    trailing_stop_pct: float = 0.5
-    trailing_distance: float = 0.3
-    # Which of Bitunix's four TPSL methods: POSITION | PARTIAL | TRAILING
-    tpsl_method: str = "POSITION"
-    # Trailing retrace mode: RATIO (pct off peak) | INTERVAL (abs off peak)
-    trailing_method: str = "RATIO"
-    # Account-level TP/SL in USDT; 0 disables that side.
-    account_tp: float = 0.0
-    account_sl: float = 0.0
-    # Periodic loops, in seconds.
-    scan_interval: float = 15.0
-    guard_interval: float = 15.0
-    mid_interval: float = 15.0
-    # Cached from trading_pairs.
-    base_precision: int = 3
-    quote_precision: int = 2
+            self.position_mode = "HEDGE"
+        # An unknown TPSL method silently fell back to POSITION inside
+        # PositionTPSL, so the bot traded a model the operator did not pick.
+        self.tpsl_method = TPSLMethod.parse(self.tpsl_method).value
+        self.trailing_method = str(self.trailing_method).strip().upper()
+        if self.trailing_method not in ("RATIO", "INTERVAL"):
+            self.trailing_method = "RATIO"
+        self.account_tp = max(0.0, self.account_tp)
+        self.account_sl = max(0.0, self.account_sl)
+        # Clocks feed an asyncio.sleep tick, so a 0 or negative interval would
+        # spin the periodic loop at full speed.
+        self.scan_interval    = max(1.0, self.scan_interval)
+        self.guard_interval   = max(1.0, self.guard_interval)
+        self.mid_interval     = max(1.0, self.mid_interval)
+
+
+# Minutes per timeframe, used to rank timeframes and to pick the "highest" one
+# for the trend filter. Mirrors trader.api.ws.KLINE_INTERVALS.
+_TF_MINUTES = {
+    "1m": 1, "3m": 3, "5m": 5, "15m": 15, "30m": 30, "1h": 60, "2h": 120,
+    "4h": 240, "6h": 360, "8h": 480, "12h": 720, "1d": 1440, "1w": 10080,
+    "1M": 43200,
+}
 
 
 def _opt_float(value: Any) -> Optional[float]:
@@ -100,6 +130,9 @@ class ManagedPosition:
 
     # TPSL management
     tpsl: Optional[PositionTPSL] = None
+    # Whether the protective orders already exist on the exchange. Guards
+    # against re-placing them on every resync.
+    tpsl_attached: bool = False
     current_price: float = 0.0
     unrealized_pnl_pct: float = 0.0
     best_price: float = 0.0
@@ -129,6 +162,9 @@ class ManagedPosition:
             qty=float(self.qty) if self.qty else None,
             quote_precision=getattr(cfg, "quote_precision", 2) if cfg else 2,
         )
+        # Build the ladder at the pair's real qty precision, not the 3-decimal
+        # guess, or the rung quantities miss what the exchange accepts.
+        self.tpsl.set_qty_precision(getattr(cfg, "base_precision", 3) if cfg else 3)
     
     def update_price(self, price: float, pnl_pct: float) -> Dict[str, Any]:
         """Update position with new price data. Returns action if TP/SL/breakeven triggered."""
@@ -213,6 +249,19 @@ class TradingEngine:
         self._pair: Dict[str, Any] = {}
         # Clock-driven loop: scan, account guard, position resync.
         self._periodic_task: Optional[asyncio.Task] = None
+        # Last REST account view, so /signal can show account-level PNL free.
+        self._last_account: Dict[str, float] = {}
+        # TPSL decided at signal time, keyed by (symbol, side, qty), waiting
+        # for the fill to hand back a positionId. Without this the levels are
+        # re-derived from ATR after the fill and can differ from the ones the
+        # operator was just told about.
+        self._pending_tpsl: Dict[tuple, "PositionTPSL"] = {}
+        # Last warned liquidation distance per position, to avoid re-warning
+        # on every guard tick while a position sits near its liquidation.
+        self._liq_warned: Dict[str, float] = {}
+        # Risk-limit tiers are fetched once; `_pair` caching would otherwise
+        # skip the fetch entirely.
+        self._tiers_loaded = False
 
         self._reload_strategies()
     
@@ -235,17 +284,26 @@ class TradingEngine:
             sig["price"] = self._last_price
 
         positions = []
-        total_u = 0.0
+        total_upnl = 0.0
+        total_margin = 0.0
         for pos in self._open_positions.values():
             tpsl = pos.tpsl
+            price = pos.current_price or self._last_price
+            # Prefer the exchange's own uPNL; fall back to deriving it from
+            # price movement so the number is never silently zero.
+            upnl = pos.unrealized_pnl
+            if not upnl and pos.entry_price and price:
+                d = price - pos.entry_price
+                upnl = d * float(pos.qty or 0) * (1 if pos.side == "LONG" else -1)
             positions.append({
                 "id": pos.position_id,
                 "symbol": pos.symbol,
                 "side": pos.side,
                 "qty": pos.qty,
                 "entry": pos.entry_price,
-                "price": pos.current_price or self._last_price,
+                "price": price,
                 "pnl_pct": pos.unrealized_pnl_pct,
+                "pnl_usdt": upnl,
                 "tp": tpsl.tp_price if tpsl else None,
                 "sl": tpsl.sl_price if tpsl else None,
                 "liq": pos.liq_price,
@@ -253,9 +311,19 @@ class TradingEngine:
                 "breakeven": bool(tpsl and tpsl.breakeven_set),
                 "trailing": bool(tpsl and tpsl.trailing_active),
                 "margin": pos.margin,
+                # True when the stop sits on the far side of liquidation and so
+                # can never fire — the exchange closes the position first.
+                "sl_beyond_liq": bool(
+                    pos.liq_price and tpsl
+                    and (tpsl.sl_price - pos.entry_price) * (pos.liq_price - pos.entry_price) > 0
+                    and abs(tpsl.sl_price - pos.entry_price) > abs(pos.liq_price - pos.entry_price)
+                ),
             })
-            total_u += pos.unrealized_pnl_pct
+            total_upnl += upnl
+            total_margin += pos.margin or 0.0
 
+        acct = self._last_account or {}
+        equity = acct.get("equity") or (acct.get("available", 0.0) + total_upnl)
         return {
             "running": self._running,
             "paper": self.cfg.paper,
@@ -264,7 +332,9 @@ class TradingEngine:
             "price": self._last_price,
             "signal": sig,
             "positions": positions,
-            "total_pnl_pct": round(total_u, 2),
+            "total_pnl_usdt": round(total_upnl, 4),
+            "total_pnl_pct": round(total_upnl / equity * 100, 2) if equity else 0.0,
+            "account": acct,
             "candles": {tf: len(v) for tf, v in self._klines.items()},
         }
     
@@ -454,24 +524,56 @@ class TradingEngine:
             if len(series) > 1:
                 asyncio.create_task(self._evaluate_strategies(tf))
 
+    def _pnl_pct(self, pos: "ManagedPosition", price: float,
+                unrealized: Optional[float] = None) -> float:
+        """Unrealized return as a percentage of committed MARGIN (ROI).
+
+        The TPSL thresholds are expressed as ROI (`breakeven 2%`, `trailing
+        trigger 5%`), and ROI is margin-relative — at 10x a 2% ROI is a 0.2%
+        price move. Returning the raw price move instead made every threshold
+        trigger ten times too late at 10x leverage.
+
+        Prefer the exchange's own unrealizedPNL over margin when both are known;
+        fall back to the price move scaled by leverage, which is the correct
+        ROI for an isolated position and a close proxy under cross margin
+        (where `margin` is reported as 0).
+        """
+        if unrealized is not None and pos.margin > 0:
+            return unrealized / pos.margin * 100.0
+        if price <= 0 or pos.entry_price <= 0:
+            return pos.unrealized_pnl_pct
+        move = ((price - pos.entry_price) if pos.side == "LONG"
+                else (pos.entry_price - price)) / pos.entry_price * 100.0
+        return move * max(1.0, pos.leverage or self.cfg.leverage)
+
     def _on_ticker(self, msg: Dict[str, Any]) -> None:
-        """Live price — keeps /signal and position PNL fresh."""
+        """Live price — keeps /signal and position PNL fresh.
+
+        This is also where trailing and breakeven actually get to move: the
+        position channel only pushes on position events, so evaluating TPSL
+        only there left the trailing stop frozen at its activation level for
+        the whole trade.
+        """
         data = msg.get("data")
         if not data:
             return
+        # The ticker push carries SHORT field names: `la` is the last traded
+        # price (`s` symbol, `o` open, `h`/`l` high/low, `b`/`q` volumes).
+        # Reading `lastPrice` here — a REST field name — always missed, so the
+        # guard below rejected every tick and the live price feed was dead:
+        # /signal showed a stale price and trailing never ratcheted.
+        raw = data.get("la") or data.get("lastPrice") or data.get("c")
         try:
-            price = float(data.get("lastPrice") or data.get("c") or 0)
+            price = float(raw)
         except (TypeError, ValueError):
             return
         if price <= 0:
             return
         self._last_price = price
-        # Refresh PNL for open positions off the live mark.
-        for pos in self._open_positions.values():
-            pnl_pct = ((price - pos.entry_price) / pos.entry_price) * 100 \
-                if pos.side == "LONG" else \
-                ((pos.entry_price - price) / pos.entry_price) * 100
-            pos.update_price(price, pnl_pct)
+        for pos_id, pos in list(self._open_positions.items()):
+            pnl_pct = self._pnl_pct(pos, price)
+            result = pos.update_price(price, pnl_pct)
+            self._apply_tpsl_action(pos_id, pos, result)
     
     def _on_position_update(self, msg: Dict[str, Any]) -> None:
         """Handle position updates from WebSocket.
@@ -527,7 +629,11 @@ class TradingEngine:
                 strategy="ws",
             )
             pos.init_tpsl(self._atr(), self.cfg)
+            self._adopt_pending_tpsl(pos)
             self._open_positions[pos_id] = pos
+            # Protection first, notification second: a position must never be
+            # reported as opened while it is still naked on the exchange.
+            asyncio.create_task(self._attach_position_tpsl(pos))
             self._notify(
                 f"✅ *New Position*\n"
                 f"ID: `{pos_id}`\n"
@@ -553,19 +659,89 @@ class TradingEngine:
 
         price = self._last_price or pos.current_price
         upnl = float(data.get("unrealizedPNL", 0) or 0)
-        # PNL as a percentage of the margin committed — the percentPNL the old
-        # code wanted. Margin is 0 on a CROSS position, so fall back to price.
-        if pos.margin > 0 and self.cfg.leverage:
-            pnl_pct = upnl / pos.margin * 100
-        elif pos.entry_price > 0 and price > 0:
-            pnl_pct = ((price - pos.entry_price) / pos.entry_price) * 100 \
-                if pos.side == "LONG" else \
-                ((pos.entry_price - price) / pos.entry_price) * 100
-        else:
-            pnl_pct = pos.unrealized_pnl_pct
+        pnl_pct = self._pnl_pct(pos, price, upnl if upnl else None)
 
         result = pos.update_price(price, pnl_pct)
         self._apply_tpsl_action(pos_id, pos, result)
+
+    def _plan_risk(self, side: str, price: float, atr_val: float,
+                   balance: float, pair: Dict[str, Any]) -> dict:
+        """Solve position size and stop together, both bounded by liquidation.
+
+        Sizing and liquidation are not independent here. Under CROSS the
+        liquidation price carries a `balance / qty` term, so shrinking the
+        position moves the liquidation price further away — and conversely, a
+        stop placed from ATR alone can land beyond the liquidation price, where
+        it can never fire because the exchange closes you first. That is the
+        exact failure that produced a SHORT with SL 0.00128 ABOVE its liq.
+
+        So: pick the ATR stop, pull it inside the liquidation price with a
+        safety buffer, then re-solve the quantity so the loss at that stop is
+        the configured risk percentage of the balance. Both move together, so
+        this iterates until the pair is stable.
+        """
+        long = side == "BUY"
+        # The risk helpers speak LONG/SHORT; the engine speaks BUY/SELL. Passing
+        # the wrong vocabulary makes every LONG fall into the short branch.
+        tside = "LONG" if long else "SHORT"
+        base_prec = self.cfg.base_precision
+        min_qty = _opt_float(pair.get("minTradeVolume")) or 0.0
+        max_qty = _opt_float(pair.get("maxMarketOrderVolume"))
+
+        risk_usdt = balance * (self.cfg.risk_pct / 100.0)
+        mmr = get_mmr(price * (min_qty or 1.0))  # tier depends on notional
+
+        def liq_price_for(q: float) -> float:
+            if q <= 0:
+                return 0.0
+            if self.cfg.margin_mode == "CROSS":
+                return calc_liquidation_cross(price, tside, q, balance, price * q)
+            # ISOLATION: only this position's own margin is at risk.
+            return calc_liquidation(price, self.cfg.leverage, tside, q, price,
+                                    margin=price * q / self.cfg.leverage,
+                                    notional=price * q).liq_price
+
+        qty = 0.0
+        sl = tp = liq = 0.0
+        for _ in range(4):                 # converges in 2; 4 is a safety net
+            liq = liq_price_for(qty)
+            # Distance from entry to liquidation, which bounds the stop.
+            room = abs(liq - price)
+            # Keep the stop a buffer inside liquidation. liq_distance_pct is the
+            # buffer as a share of that room, so 0.5% leaves the stop 0.5% of
+            # the way inside liq rather than 0.5% of price.
+            buffer = max(0.0, min(50.0, self.cfg.liq_distance_pct)) / 100.0
+            d_sl = min(atr_val, room * (1.0 - buffer))
+            # A stop so wide it cannot fit any position inside the risk budget
+            # would round the size to zero and silently kill every trade; cap it
+            # at the widest stop that still affords the exchange minimum.
+            if min_qty > 0:
+                d_sl = min(d_sl, risk_usdt / min_qty)
+            # And never tighter than a rounding error, or the stop is inside the
+            # spread and gets taken out by noise.
+            d_sl = max(d_sl, price * 0.001)
+            sl = price - d_sl if long else price + d_sl
+
+            # Quantity whose loss AT THIS STOP equals the risk budget.
+            qty = risk_usdt / d_sl if d_sl > 0 else 0.0
+            if max_qty:
+                qty = min(qty, max_qty)
+
+        qty = _floor_to(qty, base_prec)
+        if qty <= 0 or (min_qty and qty < min_qty):
+            raise OrderUnitError(
+                f"risk {self.cfg.risk_pct}% of {balance:.2f} {self.cfg.margin_coin} "
+                f"cannot afford the exchange minimum {min_qty} at {price}"
+            )
+        if max_qty:
+            qty = min(qty, _floor_to(max_qty, base_prec))
+        # Final liquidation price for the quantity actually being sent.
+        liq = liq_price_for(qty)
+        # R:R = 2 against the stop we really got, not the ATR one we wanted.
+        d_sl = abs(sl - price)
+        tp = price + 2 * d_sl if long else price - 2 * d_sl
+        return {"qty": qty, "sl": sl, "tp": tp, "liq": liq, "d_sl": d_sl,
+                "risk_usdt": risk_usdt, "max_loss_usdt": qty * d_sl}
 
     def _apply_tpsl_action(self, pos_id: str, pos: "ManagedPosition",
                            result: dict) -> None:
@@ -575,7 +751,12 @@ class TradingEngine:
             return
 
         if action in ("breakeven", "trailing_start", "trailing_update"):
-            asyncio.create_task(self._push_position_tpsl(pos))
+            # Before the first attach there is no order to modify, and a
+            # modify would bounce with "order not found". Attach instead.
+            if pos.tpsl_attached:
+                asyncio.create_task(self._push_position_tpsl(pos))
+            else:
+                asyncio.create_task(self._attach_position_tpsl(pos))
         if action == "trailing_update":
             logger.info(f"trailing {pos_id}: SL {result.get('old_sl')} -> "
                         f"{result.get('new_sl')}")
@@ -685,15 +866,46 @@ class TradingEngine:
     
     # ── Strategy Evaluation ───────────────────────────────────────────
     
+    def _higher_tf_trend(self) -> Optional[str]:
+        """Direction of the highest configured timeframe, or None if unknown.
+
+        Used as a veto: a 1m signal that disagrees with the 15m trend is noise,
+        and taking it is how the bot ended up short three times into a rising
+        market.
+        """
+        frames = [tf for tf in (self.cfg.timeframes or []) if tf != self.cfg.interval]
+        if not frames:
+            return None
+        # Highest timeframe = the one with the most minutes per bar.
+        top = max(frames, key=lambda tf: _TF_MINUTES.get(tf, 0))
+        if _TF_MINUTES.get(top, 0) <= _TF_MINUTES.get(self.cfg.interval, 0):
+            return None
+        df = self._to_dataframe(top)
+        if df is None or len(df) < 60:
+            return None
+        try:
+            from trader import indicators as ta
+            close = df["close"].astype(float)
+            fast = ta.ema(close, 20)
+            slow = ta.ema(close, 50)
+            f, s = float(fast.iloc[-1]), float(slow.iloc[-1])
+        except Exception as e:
+            logger.warning(f"trend filter failed on {top}: {e}")
+            return None
+        if not (f and s):
+            return None
+        # Require a real separation, not noise: 0.05% between the two EMAs.
+        sep = abs(f - s) / s if s else 0.0
+        if sep < 0.0005:
+            return None
+        return "UP" if f > s else "DOWN"
+
     async def _evaluate_strategies(self, tf: str = None) -> None:
         """Run all strategies on latest candle for a given timeframe."""
         tf = tf or self.cfg.interval
-        if len(self._open_positions) >= self.cfg.max_positions:
-            return  # Already at max
-        
         if not self._strategies:
             return
-        
+
         df = self._to_dataframe(tf)
         if df is None or len(df) < 60:
             return
@@ -729,8 +941,28 @@ class TradingEngine:
                 direction = Direction.SELL
 
         # Confidence is the strongest backer's score, boosted by agreement —
-        # what /signal shows and what the threshold gate applies to.
-        confidence = self._confidence(signals, direction)
+        # what /signal shows and what the threshold gate applies to. Capped at
+        # 0.95: three 1m strategies agreeing is still three readings of the same
+        # noisy timeframe, and reporting it as 100% certainty overstated it.
+        confidence = min(0.95, self._confidence(signals, direction))
+        # The periodic loop sweeps every configured timeframe, so a 1m read would
+        # otherwise overwrite a 15m read purely by being evaluated last. Keep the
+        # signal from the slowest timeframe that produced one: a higher-timeframe
+        # view is the more meaningful one to show and to act on.
+        prev = self._latest_signal
+        prev_tf = prev.get("timeframe") if prev else None
+        try:
+            prev_rank = _TF_MINUTES.get(prev_tf or "", 0)
+            new_rank = _TF_MINUTES.get(tf or "", 0)
+        except Exception:
+            prev_rank = new_rank = 0
+        if prev_tf and prev.get("direction") and prev.get("direction") != "NEUTRAL" \
+                and prev_rank > new_rank:
+            self._latest_signal["note"] = (
+                f"showing {prev_tf} signal (higher timeframe confirmed)"
+            )
+            return
+
         self._latest_signal = {
             "symbol": self.cfg.symbol,
             "timeframe": tf,
@@ -748,6 +980,39 @@ class TradingEngine:
         if direction is Direction.NEUTRAL:
             logger.info(f"[{tf}] no consensus: {long_count}B/{short_count}S")
             return
+
+        # Trend veto: never open against the higher timeframe. A 1m signal into
+        # a 15m uptrend is the exact failure mode that produced three losing
+        # shorts in a rising market. The signal is still reported — only the
+        # trade is blocked — so /signal keeps showing what the market is doing.
+        trend = self._higher_tf_trend()
+        if trend:
+            against = ((direction is Direction.SELL and trend == "UP") or
+                       (direction is Direction.BUY and trend == "DOWN"))
+            if against:
+                self._latest_signal["blocked"] = (
+                    f"against higher-timeframe trend ({trend})"
+                )
+                self._notify(
+                    f"🚫 *SIGNAL BLOCKED*\n"
+                    f"`{self.cfg.symbol}` [{tf}] wanted `{direction.value}` but the "
+                    f"higher timeframe is trending `{trend}`.\n"
+                    f"No trade opened."
+                )
+                logger.info(f"[{tf}] vetoed: {direction.value} vs trend {trend}")
+                return
+        self._latest_signal.pop("blocked", None)
+
+        # Strategies still have to run at max exposure so /signal reports what
+        # the market is doing. Bailing out before the scan left the command
+        # showing a signal from whenever the last slot freed up.
+        if len(self._open_positions) >= self.cfg.max_positions:
+            self._latest_signal["blocked"] = (
+                f"max positions reached ({len(self._open_positions)}"
+                f"/{self.cfg.max_positions})"
+            )
+            return
+        self._latest_signal.pop("blocked", None)
 
         await self._place_trade(direction, signals, tf)
 
@@ -782,29 +1047,29 @@ class TradingEngine:
         pair = await self._load_pair()
         base_prec = self.cfg.base_precision
         quote_prec = self.cfg.quote_precision
-
-        order_unit = calc_order_unit(
-            balance=available,
-            entry_price=price,
-            leverage=self.cfg.leverage,
-            risk_pct=self.cfg.risk_pct,
-            base_precision=base_prec,
-            min_trade_volume=_opt_float(pair.get("minTradeVolume")),
-            max_market_order_volume=_opt_float(pair.get("maxMarketOrderVolume")),
-        )
-
         side = "BUY" if direction == Direction.BUY else "SELL"
-
         atr_val = self._atr(tf)
-        sl = atr_stop_loss(price, atr_val, side)
-        tp = atr_take_profit(price, atr_val, side)
+
+        # Size and stop are solved together: the stop is pulled inside the
+        # liquidation price, then the size is re-solved so that hitting that
+        # stop costs the configured risk percentage of the balance.
+        try:
+            plan = self._plan_risk(side, price, atr_val, available, pair)
+        except OrderUnitError as e:
+            logger.warning(f"risk plan failed: {e}")
+            self._notify(f"⚠️ Skipping trade: {e}")
+            self._latest_signal["opened"] = False
+            self._latest_signal["error"] = str(e)
+            return
+
+        sl, tp = plan["sl"], plan["tp"]
 
         # Build the TPSL state machine first: it decides whether we send a fixed
         # TP at all (TRAILING has none until it activates) and whether the
         # ladder needs its own sized orders.
         tpsl = PositionTPSL(
             entry_price=price,
-            side="LONG" if direction is Direction.BUY else "SHORT",
+            side="LONG" if direction == Direction.BUY else "SHORT",
             atr_value=atr_val,
             method=self.cfg.tpsl_method,
             breakeven_threshold_pct=self.cfg.breakeven_threshold_pct,
@@ -814,18 +1079,21 @@ class TradingEngine:
             trailing_distance=self.cfg.trailing_distance,
             sl_price=sl,
             tp_price=tp,
-            qty=order_unit.qty_float,
+            qty=plan["qty"],
             quote_precision=quote_prec,
         )
         tpsl.set_qty_precision(base_prec)
 
         reasons = "; ".join(s.reason for s in signals[:3])
         confidence = self._latest_signal.get("confidence", 0)
+        qty_str = price_precision(plan["qty"], base_prec)
+        notional = plan["qty"] * price
         self._latest_signal.update({
-            "qty": order_unit.qty,
+            "qty": qty_str,
             "sl": price_precision(tpsl.sl_price, quote_prec),
             "tp": price_precision(tpsl.tp_price, quote_prec) if tpsl.tp_price else None,
             "tpsl_method": self.cfg.tpsl_method,
+            "liq": plan["liq"],
             "opened": False,
         })
 
@@ -835,54 +1103,58 @@ class TradingEngine:
             f"Direction: `{side}`\n"
             f"Confidence: `{confidence}%`\n"
             f"Price: `{price}`\n"
-            f"Qty: `{order_unit.qty}`\n"
-            f"Notional: `{round(order_unit.notional, 2)} {self.cfg.margin_coin}`\n"
+            f"Qty: `{qty_str}`\n"
+            f"Notional: `{round(notional, 2)} {self.cfg.margin_coin}`\n"
             f"SL: `{price_precision(tpsl.sl_price, quote_prec)}`\n"
             f"TP: `{price_precision(tpsl.tp_price, quote_prec) if tpsl.tp_price else '— (trailing)'}`\n"
+            f"Liq: `{price_precision(plan['liq'], quote_prec)}` "
+            f"(stop is {'inside' if (plan['sl'] - price) * (plan['liq'] - price) > 0 else 'OUTSIDE'} it)\n"
+            f"Max loss: `{round(plan['max_loss_usdt'], 4)} {self.cfg.margin_coin}` "
+            f"({self.cfg.risk_pct}% of balance)\n"
             f"TPSL model: `{self.cfg.tpsl_method}`\n"
             f"Strategies: `{', '.join(s.strategy for s in signals)}`\n"
             f"Reason: {reasons}"
         )
-        if order_unit.clamped:
-            msg += f"\n⚠️ clamped to exchange limit: `{order_unit.clamped}`"
         self._notify(msg)
 
         if self.cfg.paper:
-            await self._log_paper_trade(side, order_unit.qty, price, sl, tp, reasons)
+            await self._log_paper_trade(side, qty_str, price, sl, tp, reasons)
             return
 
-        # Live order. POSITION attaches both legs to the fill itself; PARTIAL
-        # needs the ladder placed as separate sized orders once we have a
-        # positionId, which only arrives after the market fill.
+        # Live order. TP/SL rides along on the order itself (place_order accepts
+        # tpPrice/slPrice), so protection exists from the instant of the fill
+        # rather than one websocket push later. _attach_position_tpsl still
+        # runs afterwards as a reconciliation pass, and is what places the
+        # PARTIAL ladder, which cannot be expressed on the order.
+        self._pending_tpsl[(self.cfg.symbol, side, qty_str)] = tpsl
         try:
-            body = {
-                "symbol": self.cfg.symbol,
-                "side": side,
-                "orderType": "MARKET",
-                "qty": order_unit.qty,
-                "reduceOnly": False,
-            }
-            if self.cfg.position_mode == "HEDGE":
-                body["tradeSide"] = "OPEN"
-            if self.cfg.tpsl_method != TPSLMethod.PARTIAL.value:
-                body["slPrice"] = price_precision(tpsl.sl_price, quote_prec)
-                body["slStopType"] = "LAST_PRICE"
-                body["slOrderType"] = "MARKET"
-                if tpsl.tp_price:
-                    body["tpPrice"] = price_precision(tpsl.tp_price, quote_prec)
-                    body["tpStopType"] = "LAST_PRICE"
-                    body["tpOrderType"] = "MARKET"
-
-            resp = await self.rest._post("/api/v1/futures/trade/place_order", body)
-            order_id = resp.get("data", {}).get("orderId", "")
+            # PARTIAL owns its profit targets via the ladder, so the order
+            # carries the position-wide STOP only — sending a position-level TP
+            # as well would close the position twice at the same price.
+            attach_tp = tpsl.tp_price is not None and \
+                tpsl.method is not TPSLMethod.PARTIAL
+            resp = await self.rest.place_order(
+                symbol=self.cfg.symbol, side=side, order_type="MARKET",
+                qty=qty_str,
+                trade_side="OPEN" if self.cfg.position_mode == "HEDGE" else None,
+                reduce_only=False,
+                sl_price=price_precision(tpsl.sl_price, quote_prec),
+                sl_stop_type="LAST_PRICE",
+                sl_order_type="MARKET",
+                tp_price=price_precision(tpsl.tp_price, quote_prec) if attach_tp else None,
+                tp_stop_type="LAST_PRICE" if attach_tp else None,
+                tp_order_type="MARKET" if attach_tp else None,
+            )
+            order_id = (resp.get("data") or {}).get("orderId", "")
             logger.info(f"order placed: {order_id}")
-            self._notify(f"✅ Order placed: `{order_id}` qty=`{order_unit.qty}`")
+            self._notify(f"✅ Order placed: `{order_id}` qty=`{qty_str}`")
             self._latest_signal["opened"] = True
             self._latest_signal["order_id"] = order_id
             self._latest_signal["sl"] = price_precision(tpsl.sl_price, quote_prec)
             self._latest_signal["tp"] = (price_precision(tpsl.tp_price, quote_prec)
                                          if tpsl.tp_price else None)
         except BitunixError as e:
+            self._pending_tpsl.pop((self.cfg.symbol, side, qty_str), None)
             logger.error(f"order failed: {e}")
             self._notify(f"❌ Order failed: [{e.code}] {e.msg}")
             self._latest_signal["opened"] = False
@@ -912,7 +1184,30 @@ class TradingEngine:
                 self.cfg.quote_precision = int(row.get("quotePrecision", 2))
             except (TypeError, ValueError):
                 pass
+        await self._load_risk_tiers()
         return self._pair
+
+    async def _load_risk_tiers(self) -> None:
+        """Refresh the maintenance-margin tier table for this symbol.
+
+        The liquidation math falls back to a hardcoded BTCUSDT snapshot, which
+        is wrong for any other symbol and drifts over time. get_position_tiers
+        is the authoritative source, so load it once at startup and hand it to
+        the liquidation module.
+        """
+        if self._tiers_loaded:
+            return
+        self._tiers_loaded = True
+        try:
+            resp = await self.rest.get_position_tiers(self.cfg.symbol)
+            rows = resp.get("data") or []
+            if not rows:
+                return
+            rows = sorted(rows, key=lambda r: float(r.get("level", 0) or 0))
+            set_tiers(rows)
+            logger.info(f"risk tiers loaded for {self.cfg.symbol}: {len(rows)} levels")
+        except Exception as e:
+            logger.warning(f"get_position_tiers failed, using default tiers: {e}")
 
     async def _push_position_tpsl(self, pos: "ManagedPosition") -> None:
         """Rewrite the position's TP/SL after a local level change.
@@ -922,8 +1217,7 @@ class TradingEngine:
         """
         if self.cfg.paper or not pos.tpsl:
             return
-        body = {"symbol": pos.symbol, "positionId": pos.position_id,
-                **pos.tpsl.position_payload()}
+        body = pos.tpsl.position_payload()
         try:
             await self.rest.modify_position_tpsl(
                 symbol=pos.symbol, position_id=pos.position_id,
@@ -938,24 +1232,108 @@ class TradingEngine:
         except Exception as e:
             logger.error(f"modify_position_tpsl error for {pos.position_id}: {e}")
 
+    def _adopt_pending_tpsl(self, pos: "ManagedPosition") -> None:
+        """Hand the fill the exact levels chosen when the signal fired.
+
+        The position only exists after the market fill, and by then the ATR has
+        moved on. Re-deriving the levels here would put stops on the exchange
+        that differ from the ones just announced in Telegram, so match the
+        waiting order by (symbol, side, qty) and adopt its state machine.
+        """
+        sym = pos.symbol
+        side = "LONG" if pos.side == "LONG" else "SHORT"
+        trade_side = "BUY" if side == "LONG" else "SELL"
+        for key in ((sym, trade_side, str(pos.qty)), (sym, trade_side)):
+            pending = self._pending_tpsl.pop(key, None)
+            if pending is not None:
+                pos.tpsl = pending
+                pos.tpsl.entry_price = pos.entry_price or pending.entry_price
+                pos.tpsl.best_price = pos.entry_price
+                return
+        # Nothing waiting (position predates this process): keep the ATR-derived
+        # levels init_tpsl built, but split the ladder at exchange precision.
+        if pos.tpsl:
+            pos.tpsl.set_qty_precision(self.cfg.base_precision)
+
+    async def _attach_position_tpsl(self, pos: "ManagedPosition") -> None:
+        """Reconcile the position's protective orders, and place the ladder.
+
+        The market order already carries the position TP/SL, so normally this
+        finds them in place and only fills the gaps: a position that predates
+        this process (restart) has none, and PARTIAL additionally needs its
+        sized take-profit rungs, which place_order cannot express.
+
+        Guarded by pos.tpsl_attached so a resync can never stack duplicate
+        protective orders on one position, and it checks the exchange first
+        because Bitunix permits only ONE position TP/SL per position.
+        """
+        if self.cfg.paper or not pos.tpsl or pos.tpsl_attached:
+            return
+
+        already_there = False
+        try:
+            resp = await self.rest.get_pending_tpsl_orders(
+                symbol=pos.symbol, position_id=pos.position_id, limit=100)
+            existing = resp.get("data") or []
+            if isinstance(existing, dict):
+                existing = existing.get("list") or []
+            already_there = bool(existing)
+        except Exception as e:
+            logger.warning(f"pending tpsl check failed for {pos.position_id}: {e}")
+
+        if not already_there:
+            pos.tpsl_attached = True
+            body = pos.tpsl.position_payload()
+            try:
+                await self.rest.place_position_tpsl(
+                    symbol=pos.symbol, position_id=pos.position_id,
+                    tp_price=body.get("tpPrice"), sl_price=body.get("slPrice"),
+                    tp_stop_type=body.get("tpStopType"), sl_stop_type=body.get("slStopType"),
+                )
+                logger.info(f"position {pos.position_id} TPSL placed: {body}")
+            except BitunixError as e:
+                pos.tpsl_attached = False   # let the next sync retry
+                logger.error(f"place_position_tpsl failed for {pos.position_id}: {e}")
+                self._notify(f"⚠️ Could not attach TP/SL to `{pos.position_id}`: "
+                             f"[{e.code}] {e.msg}")
+                return
+            self._notify(
+                f"🛡 *TP/SL attached* `{pos.position_id}`\n"
+                f"SL: `{body.get('slPrice')}`"
+                + (f" | TP: `{body.get('tpPrice')}`" if body.get("tpPrice") else "")
+            )
+        else:
+            # Order-level TP/SL is already live (or predates this process).
+            pos.tpsl_attached = True
+            logger.info(f"position {pos.position_id} already has "
+                        f"{len(existing)} TP/SL order(s); leaving them alone")
+
+        if pos.tpsl.method is TPSLMethod.PARTIAL:
+            await self._place_partial_ladder(pos)
+
     async def _place_partial_ladder(self, pos: "ManagedPosition") -> None:
         """Place the Partial TP/SL ladder as sized tpsl/place_order calls."""
         if self.cfg.paper or not pos.tpsl:
             return
-        for body in pos.tpsl.partial_orders():
+        placed = 0
+        for lv, body in zip(pos.tpsl.unplaced_levels(),
+                            pos.tpsl.partial_orders()):
             try:
                 await self.rest.place_tpsl_order(
                     symbol=pos.symbol, position_id=pos.position_id, **body
                 )
+                lv.placed = True       # so a resync cannot re-send this rung
+                placed += 1
             except BitunixError as e:
                 logger.error(f"partial TPSL failed for {pos.position_id}: {e}")
                 self._notify(f"⚠️ Partial TP/SL failed on `{pos.position_id}`: "
                              f"[{e.code}] {e.msg}")
                 return
-        self._notify(
-            f"🪜 *Partial TP/SL ladder placed*\n"
-            f"`{pos.symbol}` {pos.side} {len(pos.tpsl.ladder)} levels"
-        )
+        if placed:
+            self._notify(
+                f"🪜 *Partial TP/SL ladder placed*\n"
+                f"`{pos.symbol}` {pos.side} — {placed} level(s)"
+            )
 
     async def sync_positions(self) -> None:
         """Rebuild position state from REST.
@@ -1002,9 +1380,23 @@ class TradingEngine:
                 pos.margin = _opt_float(row.get("margin")) or 0.0
                 pos.leverage = _opt_float(row.get("leverage")) or float(self.cfg.leverage)
                 pos.init_tpsl(atr, self.cfg)
+                self._adopt_pending_tpsl(pos)
                 self._open_positions[pid] = pos
+                # A position that exists only because the process restarted
+                # still needs its stop; attach it once, guarded per position.
+                if not self.cfg.paper:
+                    asyncio.create_task(self._attach_position_tpsl(pos))
             else:
-                pos.qty = str(row.get("qty", pos.qty))
+                new_qty = str(row.get("qty", pos.qty))
+                if new_qty != pos.qty:
+                    pos.qty = new_qty
+                    # Keep the ladder sized against the live position, or a
+                    # partial close leaves the rungs closing more than is left.
+                    if pos.tpsl:
+                        try:
+                            pos.tpsl.qty = float(new_qty)
+                        except (TypeError, ValueError):
+                            pass
                 pos.margin = _opt_float(row.get("margin")) or pos.margin
             pos.liq_price = _opt_float(row.get("liqPrice")) or 0.0
 
@@ -1031,7 +1423,11 @@ class TradingEngine:
             logger.error(f"account guard: {e}")
             return
         if not rows:
+            # Flat again: re-arm, so a later session can hit the same
+            # threshold instead of the latch holding until restart.
+            self.account_guard.reset()
             return
+        self._warn_near_liquidation(rows)
         total = sum(_opt_float(r.get("unrealizedPNL")) or 0.0 for r in rows)
         hit = self.account_guard.check(total)
         if not hit:
@@ -1049,10 +1445,86 @@ class TradingEngine:
             self._notify(f"❌ Account {hit} hit but close_all_position failed: "
                          f"[{e.code}] {e.msg}")
     
+    def _warn_near_liquidation(self, rows: List[Dict[str, Any]]) -> None:
+        """Warn when a position is close to its liquidation price.
+
+        Bitunix tiers the maintenance margin rate by notional, so a fixed
+        percentage is not enough on its own. Prefer the exchange's own
+        `liqPrice` from get_pending_positions (it already applies the tier in
+        force for that symbol); fall back to the tier table for the margin-ratio
+        check, which is what decides whether liquidation is actually imminent.
+
+        Warns at most once per position per 5% of remaining distance so a
+        15-second guard interval does not spam the channel.
+        """
+        price = self._last_price
+        if price <= 0:
+            return
+        for row in rows:
+            pid = str(row.get("positionId", ""))
+            liq = _opt_float(row.get("liqPrice")) or 0.0
+            if liq <= 0:
+                continue
+            side = str(row.get("side", "LONG")).upper()
+            entry = _opt_float(row.get("avgOpenPrice")) or 0.0
+            qty = _opt_float(row.get("qty")) or 0.0
+            margin = _opt_float(row.get("margin")) or 0.0
+            leverage = _opt_float(row.get("leverage")) or float(self.cfg.leverage)
+
+            # How far price still has to travel to reach liquidation.
+            room = (liq - price) / price * 100 if side == "LONG" \
+                else (price - liq) / price * 100
+            near_price = room <= self.cfg.liq_distance_pct
+
+            near_margin = False
+            liq_res = None
+            # The position snapshot carries the exchange's own `marginRate`
+            # (margin over maintenance margin) — authoritative, and already
+            # tier-aware. Only compute it ourselves when it is absent.
+            margin_rate = _opt_float(row.get("marginRate"))
+            if margin_rate is not None and margin_rate > 0:
+                near_margin = is_near_liquidation(margin_rate)
+                ratio_text = f"{margin_rate:.3f}"
+            elif margin > 0 and qty > 0 and entry > 0:
+                liq_res = calc_liquidation(
+                    avg_entry=entry, leverage=int(leverage or 1), side=side,
+                    qty=qty, current_price=price, margin=margin,
+                )
+                near_margin = is_near_liquidation(liq_res.margin_ratio)
+                ratio_text = f"{liq_res.margin_ratio:.3f}"
+            else:
+                ratio_text = None
+
+            last = self._liq_warned.get(pid, 1e9)
+            if (near_price or near_margin) and (last - room) >= 5.0:
+                self._liq_warned[pid] = room
+                self._notify(
+                    f"⚠️ *NEAR LIQUIDATION* `{row.get('symbol', '')}`\n"
+                    f"ID: `{pid}` | Side: `{side}`\n"
+                    f"Price: `{price}` | Liq: `{liq}`\n"
+                    f"Distance: `{room:.2f}%`"
+                    + (f"\nMargin rate: `{ratio_text}`" if ratio_text else "")
+                    + "\nReduce size or add margin now."
+                )
+            elif room > (self._liq_warned.get(pid, 1e9) - 5.0) + 5.0:
+                # Back to safety — allow the warning to fire again later.
+                self._liq_warned.pop(pid, None)
+
     async def _get_account(self) -> Dict[str, Any]:
         try:
             resp = await self.rest.get_account(self.cfg.margin_coin)
-            return account_dict(resp)
+            acct = account_dict(resp)
+            # Cached so /signal and the periodic report can show account-level
+            # PNL without spending an API call on every tick.
+            if acct:
+                self._last_account = {
+                    "coin": acct.get("coin") or self.cfg.margin_coin,
+                    "available": _opt_float(acct.get("available")) or 0.0,
+                    "equity": _opt_float(acct.get("equity")) or 0.0,
+                    "margin": _opt_float(acct.get("margin")) or 0.0,
+                    "unrealized_pnl": _opt_float(acct.get("unrealizedPNL")) or 0.0,
+                }
+            return acct
         except Exception as e:
             logger.error(f"get_account failed: {e}")
             return {}

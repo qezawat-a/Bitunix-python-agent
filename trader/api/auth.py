@@ -35,11 +35,39 @@ import uuid
 from typing import Any, Dict, Optional
 from urllib.parse import urlencode
 
-__all__ = ["make_headers", "make_ws_login_args", "sign_rest", "canonical_query"]
+__all__ = ["make_headers", "make_ws_login_args", "sign_rest", "canonical_query",
+           "canonical_body", "wire_params"]
 
 
 def _sha256(data: str) -> str:
     return hashlib.sha256(data.encode()).hexdigest()
+
+
+def wire_params(params: Optional[Dict[str, Any]]) -> Dict[str, str]:
+    """Coerce query params to the exact strings httpx puts on the wire.
+
+    The signature covers the query, so the signed string has to be byte-equal
+    to what is transmitted. Python's str(True) is "True", while httpx
+    serialises a bool as "true" — signing the dict and sending it unchanged
+    therefore produced two different strings and every request carrying a bool
+    (e.g. includeSubAccounts) failed with error 10007. Normalising once and
+    passing the SAME dict to httpx closes the gap.
+
+    None values are dropped, matching httpx, which omits them entirely.
+    """
+    if not params:
+        return {}
+    out: Dict[str, str] = {}
+    for k, v in params.items():
+        if v is None:
+            continue
+        if isinstance(v, bool):
+            out[str(k)] = "true" if v else "false"
+        elif isinstance(v, str):
+            out[str(k)] = v
+        else:
+            out[str(k)] = str(v)
+    return out
 
 
 def canonical_query(params: Optional[Dict[str, Any]]) -> str:
@@ -50,12 +78,13 @@ def canonical_query(params: Optional[Dict[str, Any]]) -> str:
         {"symbol": "BTCUSDT", "limit": 5}
         -> "limit5symbolBTCUSDT"
 
-    Values are stringified, so bools become "True"/"False" and None is
-    skipped by the caller. Sort is on the raw string key (ASCII order).
+    Values are stringified by wire_params(), so a bool is hashed as "true" and
+    None is skipped. Sort is on the raw string key (ASCII order).
     """
     if not params:
         return ""
-    return "".join(f"{k}{params[k]}" for k in sorted(params, key=str))
+    wire = wire_params(params)
+    return "".join(f"{k}{wire[k]}" for k in sorted(wire, key=str))
 
 
 def canonical_body(body: Optional[Any]) -> str:

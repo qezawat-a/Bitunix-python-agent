@@ -21,7 +21,7 @@ import httpx
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
 from config import Config
-from trader.api.auth import canonical_body, make_headers
+from trader.api.auth import canonical_body, make_headers, wire_params
 
 
 _BASE = Config.BITUNIX_BASE_URL
@@ -83,9 +83,12 @@ class BitunixRestClient:
         reraise=True,
     )
     async def _get(self, path: str, params: Dict[str, Any] | None = None) -> Dict[str, Any]:
-        # httpx appends `params` to the URL; those are exactly the values the
-        # signature covers.
-        resp = await self._client.get(path, params=params, headers=_headers(params, None))
+        # Normalise once and use the SAME dict for both the signature and the
+        # request, so the two can never disagree (a bool signs as "true" here
+        # and must go out as "true", not Python's "True" -> error 10007).
+        wire = wire_params(params)
+        resp = await self._client.get(path, params=wire or None,
+                                      headers=_headers(wire or None, None))
         resp.raise_for_status()
         return _ok(resp.json())
 

@@ -44,6 +44,31 @@ def interval_from_channel(ch: str) -> str | None:
     return _CHANNEL_TO_REST.get(suffix, suffix)
 
 
+def channel_family(ch: str) -> str:
+    """Collapse a concrete channel name to the family key callbacks register on.
+
+    Bitunix encodes the symbol and the kline interval into the channel name
+    itself (`market_kline_15min`, `market_ticker_BTCUSDT`), while callers
+    register a bare family key such as "kline". Dispatch used to compare the
+    raw string, so the engine's kline handler was registered under "kline"
+    while every push arrived as "market_kline_15min": the two never matched,
+    the candle buffer froze at its backfill, and the bot traded on data that
+    could be hours stale. Falling back to the family makes the handler match
+    whatever exact channel string the gateway uses.
+    """
+    if not ch:
+        return ""
+    name = ch
+    for prefix in ("market_", "mark_"):
+        if name.startswith(prefix):
+            name = name[len(prefix):]
+            break
+    if "_kline_" in name:
+        name = name.split("_kline_", 1)[0]
+    # A trailing _SYMBOL segment is not part of the family.
+    return name.split("_", 1)[0] or name
+
+
 class BitunixWSClient:
     """
     Manages one public and one private WebSocket connection.
@@ -261,8 +286,14 @@ class BitunixWSClient:
     async def _dispatch(self, msg: Dict[str, Any]) -> None:
         ch = msg.get("ch") or msg.get("op", "")
         symbol = msg.get("symbol", "")
-        # Build lookup keys from most-specific to least
-        keys = [f"{ch}:{symbol}", ch, ""]
+        # Build lookup keys from most-specific to least. The family key comes
+        # before the bare catch-all so a "kline" registration still sees
+        # market_kline_15min, and a "" (catch-all) registration still sees
+        # everything. Dedupe so one callback cannot fire twice per message.
+        keys: List[str] = []
+        for key in (f"{ch}:{symbol}", ch, channel_family(ch), ""):
+            if key and key not in keys:
+                keys.append(key)
         for key in keys:
             for cb in self._callbacks.get(key, []):
                 try:

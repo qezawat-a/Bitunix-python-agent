@@ -148,6 +148,10 @@ class PositionTPSL:
         self.quote_precision = quote_precision
         self.qty = qty
         self.partial_ratios = partial_ratios or [30, 40, 30]
+        # Base-coin precision for ladder splits, from trading_pairs
+        # `basePrecision`. Set before the ladder is built so the first build
+        # already splits at exchange precision rather than the 3-decimal guess.
+        self._qty_precision = 3
 
         self.breakeven_threshold = breakeven_threshold_pct / 100.0
         self.trailing_trigger_roi = trailing_trigger_roi_pct / 100.0
@@ -195,10 +199,7 @@ class PositionTPSL:
             return []
         risk = abs(self.entry_price - self.sl_price) or self.atr
         long = self.side == "LONG"
-        # Match the ladder to the pair's qty precision — buy_pairs gives it
-        # back from trading_pairs `basePrecision`, passed in by the engine.
-        qty_prec = getattr(self, "_qty_precision", 3)
-        parts = split_ratio(self.qty, self.partial_ratios, qty_prec)
+        parts = split_ratio(self.qty, self.partial_ratios, self._qty_precision)
         levels: List[TPSLLevel] = []
         for i, part in enumerate(parts):
             price = (self.entry_price + risk * (i + 1)) if long \
@@ -312,19 +313,25 @@ class PositionTPSL:
     # ── REST payloads ────────────────────────────────────────────────────
 
     def position_payload(self) -> dict:
-        """Body for tpsl/position/modify_order — one stop for the whole position.
+        """Body for tpsl/position/place_order and /modify_order.
 
-        Both trigger prices are optional upstream, but we always send the SL and
-        only send a TP when there is a fixed target (TRAILING has none).
+        One stop for the whole position. For PARTIAL the ladder owns every take
+        profit, so the position order must carry the STOP ONLY — sending a
+        position-level TP at the same price as the ladder's top rung would
+        close the position twice over.
         """
         body: dict = {
             "slPrice": f"{self.sl_price:.{self.quote_precision}f}",
             "slStopType": "LAST_PRICE",
         }
-        if self.tp_price:
+        if self.tp_price and self.method is not TPSLMethod.PARTIAL:
             body["tpPrice"] = f"{self.tp_price:.{self.quote_precision}f}"
             body["tpStopType"] = "LAST_PRICE"
         return body
+
+    def unplaced_levels(self) -> List[TPSLLevel]:
+        """Ladder rungs whose orders have not been accepted yet."""
+        return [lv for lv in self.ladder if not lv.placed]
 
     def partial_orders(self) -> List[dict]:
         """One tpsl/place_order body per unplaced ladder rung.
@@ -333,7 +340,7 @@ class PositionTPSL:
         quantities — Bitunix has no "close 30% at X" primitive, the ladder IS
         the set of sized orders.
         """
-        return [lv.payload(self.quote_precision) for lv in self.ladder if not lv.placed]
+        return [lv.payload(self.quote_precision) for lv in self.unplaced_levels()]
 
     def to_dict(self) -> dict:
         return {

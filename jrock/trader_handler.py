@@ -234,6 +234,7 @@ async def _start(args: str, update: Update, ctx) -> str:
         trailing_method=c["trailing_method"],
         account_tp=float(c["account_tp"]),
         account_sl=float(c["account_sl"]),
+        liq_distance_pct=float(c["liq_distance"]),
         scan_interval=float(c["scan_interval"]),
         guard_interval=float(c["guard_interval"]),
         mid_interval=float(c["mid_interval"]),
@@ -436,13 +437,30 @@ async def _signal(args: str, update: Update, ctx) -> str:
                 f"• `{p['symbol']}` {p['side']} qty=`{p['qty']}`\n"
                 f"  Entry `{p['entry']:.{quote_prec}f}` → "
                 f"now `{p['price']:.{quote_prec}f}`\n"
-                f"  PNL `{p['pnl_pct']:+.2f}%` | SL `{p['sl'] or '—'}` "
-                f"| TP `{p['tp'] or '—'}` | model `{p['method']}`"
-                + (f"\n  {' '.join(flags)}" if flags else "")
+                f"  PNL `{p['pnl_usdt']:+.4f} USDT` ({p['pnl_pct']:+.2f}%) | "
+                f"SL `{p['sl'] or '—'}` | TP `{p['tp'] or '—'}` | model `{p['method']}`\n"
+                f"  Liq `{p['liq'] or '—'}`"
+                + (f"  {' '.join(flags)}" if flags else "")
             )
-        out.append(f"\nTotal PNL: `{snap['total_pnl_pct']:+.2f}%`")
+            if p.get("sl_beyond_liq"):
+                out.append("  🚨 **SL is beyond liquidation — it can never fire**")
     else:
         out.append("_No open positions._")
+
+    # Account-level PNL, in USDT and as a share of equity.
+    acct = snap.get("account") or {}
+    coin = acct.get("coin") or "USDT"
+    upnl = snap.get("total_pnl_usdt", 0.0)
+    pct = snap.get("total_pnl_pct", 0.0)
+    out.append(
+        f"\n*Total PNL:* `{upnl:+.4f} {coin}` ({pct:+.2f}% of equity)"
+    )
+    if acct:
+        out.append(
+            f"Equity `{acct.get('equity', 0):.2f}` | "
+            f"available `{acct.get('available', 0):.2f}` | "
+            f"margin used `{acct.get('margin', 0):.2f}`"
+        )
 
     # Model 4 — say whether the account-wide guard is armed.
     atp = float(c.get("account_tp") or 0)
@@ -609,10 +627,13 @@ def format_report(e) -> str:
 
     for p in snap.get("positions") or []:
         flags = (" 🎯BE" if p["breakeven"] else "") + (" 📈Trail" if p["trailing"] else "")
-        lines.append(f"• `{p['symbol']}` {p['side']} `{p['pnl_pct']:+.2f}%` "
-                     f"SL:`{p['sl'] or '—'}` TP:`{p['tp'] or '—'}`{flags}")
-    if snap.get("positions"):
-        lines.append(f"Total: `{snap['total_pnl_pct']:+.2f}%`")
+        danger = " 🚨SL>LIQ" if p.get("sl_beyond_liq") else ""
+        lines.append(f"• `{p['symbol']}` {p['side']} "
+                     f"`{p['pnl_usdt']:+.4f}` ({p['pnl_pct']:+.2f}%) "
+                     f"SL:`{p['sl'] or '—'}` TP:`{p['tp'] or '—'}`{flags}{danger}")
+    # Total PNL always, positions or not — the number that matters.
+    lines.append(f"Total PNL: `{snap.get('total_pnl_usdt', 0):+.4f}` "
+                 f"({snap.get('total_pnl_pct', 0):+.2f}%)")
     return "\n".join(lines)
 
 
@@ -1183,6 +1204,8 @@ async def _set_liq_distance(args: str, update: Update, ctx) -> str:
     except ValueError:
         return f"Current liq SL distance: `{await _kv_get('t/liq_distance', '5.0')}%`"
     await _kv_set("t/liq_distance", str(pct))
+    e = _engine(ctx)
+    if e: e.cfg.liq_distance_pct = pct
     return f"✅ Liq SL distance: `{pct}%`"
 
 
