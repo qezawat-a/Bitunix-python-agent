@@ -1360,9 +1360,24 @@ class TradingEngine:
         """Place the Partial TP/SL ladder as sized tpsl/place_order calls."""
         if self.cfg.paper or not pos.tpsl:
             return
+        levels = pos.tpsl.unplaced_levels()
+        orders = pos.tpsl.partial_orders()
+
+        if not levels:
+            # Silent no-op otherwise. _build_ladder yields nothing when it has
+            # no qty to split, and this position then carried a stop with NO
+            # take-profit anywhere on the exchange: the bot reported a large
+            # open profit, price ran through every ladder rung, none of them
+            # existed, and the position round-tripped back into a loss. A
+            # target that may silently not exist is worse than no ladder.
+            logger.error(f"partial ladder empty for {pos.position_id} "
+                         f"(qty={pos.qty!r}) — falling back to a single TP")
+            await self._ensure_take_profit(pos, "ladder had no rungs to place")
+            return
+
         placed = 0
-        for lv, body in zip(pos.tpsl.unplaced_levels(),
-                            pos.tpsl.partial_orders()):
+        failure = ""
+        for lv, body in zip(levels, orders):
             try:
                 await self.rest.place_tpsl_order(
                     symbol=pos.symbol, position_id=pos.position_id, **body
@@ -1370,14 +1385,68 @@ class TradingEngine:
                 lv.placed = True       # so a resync cannot re-send this rung
                 placed += 1
             except BitunixError as e:
+                failure = f"[{e.code}] {e.msg}"
                 logger.error(f"partial TPSL failed for {pos.position_id}: {e}")
-                self._notify(f"⚠️ Partial TP/SL failed on `{pos.position_id}`: "
-                             f"[{e.code}] {e.msg}")
-                return
+                break
+            except Exception as e:
+                # A non-Bitunix error (a parse failure, a timeout) used to kill
+                # this task with nothing logged and nothing notified, so the
+                # position stayed permanently untargeted and nobody knew.
+                failure = f"{type(e).__name__}: {e}"
+                logger.exception(f"partial TPSL crashed for {pos.position_id}")
+                break
+
         if placed:
             self._notify(
                 f"🪜 *Partial TP/SL ladder placed*\n"
-                f"`{pos.symbol}` {pos.side} — {placed} level(s)"
+                f"`{pos.symbol}` {pos.side} — {placed}/{len(levels)} level(s)"
+            )
+        if placed < len(levels):
+            self._notify(f"⚠️ Partial TP/SL incomplete on `{pos.position_id}` — "
+                         f"{placed}/{len(levels)} rungs placed ({failure})")
+            await self._ensure_take_profit(pos, f"only {placed}/{len(levels)} rungs placed")
+
+    async def _ensure_take_profit(self, pos: "ManagedPosition", reason: str) -> None:
+        """Guarantee at least one take-profit order exists for this position.
+
+        Invariant, not optimisation: a position may never sit on the exchange
+        with a stop and no way to take profit. Sized with the POSITION's full
+        remaining quantity as a single partial-order TP — deliberately not a
+        position-level TP/SL, because Bitunix permits only one position TP/SL
+        per position and the entry order already owns that slot with its stop.
+        """
+        tp = pos.tpsl.tp_price if pos.tpsl else None
+        qty = pos.qty
+        if not tp or not qty:
+            self._notify(
+                f"🛑 *NO TAKE-PROFIT on `{pos.symbol}`*\n"
+                f"`{pos.position_id}` {pos.side} qty `{qty}` has a stop but no "
+                f"target ({reason}). It can only exit via the stop.\n"
+                f"Close it manually or set `tpsl_method` to POSITION."
+            )
+            return
+        try:
+            await self.rest.place_tpsl_order(
+                symbol=pos.symbol,
+                position_id=pos.position_id,
+                tp_price=price_precision(tp, self.cfg.quote_precision),
+                tp_qty=str(qty),
+                tp_order_type="MARKET",
+                tp_stop_type="LAST_PRICE",
+            )
+            logger.info(f"fallback TP placed for {pos.position_id} @ {tp} qty {qty}")
+            self._notify(
+                f"🛟 *Fallback TP placed*\n"
+                f"`{pos.symbol}` {pos.side} — full `{qty}` at "
+                f"`{price_precision(tp, self.cfg.quote_precision)}`\n"
+                f"({reason})"
+            )
+        except Exception as e:
+            logger.exception(f"fallback TP failed for {pos.position_id}")
+            self._notify(
+                f"🛑 *FAILED to place any TP on `{pos.symbol}`*\n"
+                f"`{pos.position_id}` {pos.side} qty `{qty}` has a STOP and "
+                f"NO TARGET ({reason}; {e})."
             )
 
     async def sync_positions(self) -> None:

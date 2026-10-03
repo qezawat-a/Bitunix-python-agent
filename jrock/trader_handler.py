@@ -635,11 +635,14 @@ def format_report(e) -> str:
         tp = f"{p['tp']:.{qp}f}" if p.get("tp") else "—"
         entry = f"{p['entry']:.{qp}f}" if p.get("entry") else "—"
         lines.append(f"• `{p['symbol']}` {p['side']} `{entry}` "
-                     f"`{p['pnl_usdt']:+.4f}` ({p['pnl_pct']:+.2f}%) "
+                     f"`{p['pnl_usdt']:+.4f}` ({p['pnl_pct']:+.2f}% on margin) "
                      f"SL:`{sl}` TP:`{tp}`{flags}{danger}")
-    # Total PNL always, positions or not — the number that matters.
+    # Total PNL always, positions or not — the number that matters. Measured
+    # against ACCOUNT EQUITY, so it reads as a normal account percentage; the
+    # per-position figure above is ROI on committed margin, which at high
+    # leverage prints triple digits and reads as fantasy.
     lines.append(f"Total PNL: `{snap.get('total_pnl_usdt', 0):+.4f}` "
-                 f"({snap.get('total_pnl_pct', 0):+.2f}%)")
+                 f"({snap.get('total_pnl_pct', 0):+.2f}% of equity)")
     return "\n".join(lines)
 
 
