@@ -238,6 +238,7 @@ async def _start(args: str, update: Update, ctx) -> str:
         scan_interval=float(c["scan_interval"]),
         guard_interval=float(c["guard_interval"]),
         mid_interval=float(c["mid_interval"]),
+        report_interval=int(c["report_interval"]),
     )
 
     # persist resolved values
@@ -433,11 +434,12 @@ async def _signal(args: str, update: Update, ctx) -> str:
                 flags.append("🎯BE")
             if p["trailing"]:
                 flags.append("📈Trail")
+            approx = "~" if p.get("pnl_source") == "derived" else ""
             out.append(
                 f"• `{p['symbol']}` {p['side']} qty=`{p['qty']}`\n"
                 f"  Entry `{p['entry']:.{quote_prec}f}` → "
                 f"now `{p['price']:.{quote_prec}f}`\n"
-                f"  PNL `{p['pnl_usdt']:+.4f} USDT` ({p['pnl_pct']:+.2f}%) | "
+                f"  PNL `{approx}{p['pnl_usdt']:+.4f} USDT` ({p['pnl_pct']:+.2f}%) | "
                 f"SL `{p['sl'] or '—'}` | TP `{p['tp'] or '—'}` | model `{p['method']}`\n"
                 f"  Liq `{p['liq'] or '—'}`"
                 + (f"  {' '.join(flags)}" if flags else "")
@@ -452,14 +454,23 @@ async def _signal(args: str, update: Update, ctx) -> str:
     coin = acct.get("coin") or "USDT"
     upnl = snap.get("total_pnl_usdt", 0.0)
     pct = snap.get("total_pnl_pct", 0.0)
+    # The sum inherits the weakest source among its parts.
+    t_approx = "~" if snap.get("total_pnl_source") == "derived" else ""
     out.append(
-        f"\n*Total PNL:* `{upnl:+.4f} {coin}` ({pct:+.2f}% of equity)"
+        f"\n*Total PNL:* `{t_approx}{upnl:+.4f} {coin}` ({pct:+.2f}% of equity)"
     )
     if acct:
+        # Equity is derived by the engine (Bitunix's get_single_account has no
+        # equity field), so label it rather than presenting it as an exchange
+        # reading. `acct_age_s` makes it obvious when the cache has gone stale.
+        acct_age = snap.get("acct_age_s")
+        stale = " ⚠️ stale" if acct_age is not None and acct_age > 120 else ""
+        eq_label = "Equity (derived)" if acct.get("equity_derived") else "Equity"
         out.append(
-            f"Equity `{acct.get('equity', 0):.2f}` | "
+            f"{eq_label} `{acct.get('equity', 0):.2f}`{stale} | "
             f"available `{acct.get('available', 0):.2f}` | "
             f"margin used `{acct.get('margin', 0):.2f}`"
+            + (f" | age {acct_age}s" if stale else "")
         )
 
     # Model 4 — say whether the account-wide guard is armed.
@@ -616,7 +627,16 @@ def format_report(e) -> str:
              if hasattr(e.cfg, "report_interval") else
              f"📊 *{snap['symbol']}*"]
     if snap.get("price"):
-        lines.append(f"Price: `{snap['price']:.{qp}f}`")
+        # A price with no age attached reads as "current" no matter how old it
+        # actually is. If the ticker socket dropped, `_last_price` holds its
+        # last value forever, so say so rather than reporting it as live.
+        if snap.get("price_stale"):
+            age = snap.get("price_age_s")
+            age_txt = "never" if age is None else f"{age}s"
+            lines.append(f"Price: `{snap['price']:.{qp}f}` ⚠️ **STALE** "
+                         f"(last tick {age_txt} ago)")
+        else:
+            lines.append(f"Price: `{snap['price']:.{qp}f}`")
     if sig.get("direction"):
         icon = {"BUY": "🟢", "SELL": "🔴"}.get(sig["direction"], "⚪")
         lines.append(f"{icon} Signal: `{sig['direction']}` "
@@ -634,14 +654,22 @@ def format_report(e) -> str:
         sl = f"{p['sl']:.{qp}f}" if p.get("sl") else "—"
         tp = f"{p['tp']:.{qp}f}" if p.get("tp") else "—"
         entry = f"{p['entry']:.{qp}f}" if p.get("entry") else "—"
+        # Mark a locally-derived PNL. It is an estimate from the last tick, not
+        # the exchange's figure, and at high leverage the difference is not
+        # cosmetic.
+        approx = "~" if p.get("pnl_source") == "derived" else ""
         lines.append(f"• `{p['symbol']}` {p['side']} `{entry}` "
-                     f"`{p['pnl_usdt']:+.4f}` ({p['pnl_pct']:+.2f}% on margin) "
+                     f"`{approx}{p['pnl_usdt']:+.4f}` ({p['pnl_pct']:+.2f}% on margin) "
                      f"SL:`{sl}` TP:`{tp}`{flags}{danger}")
     # Total PNL always, positions or not — the number that matters. Measured
     # against ACCOUNT EQUITY, so it reads as a normal account percentage; the
     # per-position figure above is ROI on committed margin, which at high
     # leverage prints triple digits and reads as fantasy.
-    lines.append(f"Total PNL: `{snap.get('total_pnl_usdt', 0):+.4f}` "
+    # A total is only as trustworthy as its parts: if any position's figure was
+    # derived rather than read off the exchange, the sum inherits that, so mark
+    # it the same way the parts are marked.
+    t_approx = "~" if snap.get("total_pnl_source") == "derived" else ""
+    lines.append(f"Total PNL: `{t_approx}{snap.get('total_pnl_usdt', 0):+.4f}` "
                  f"({snap.get('total_pnl_pct', 0):+.2f}% of equity)")
     return "\n".join(lines)
 
@@ -781,6 +809,7 @@ async def _positions(args: str, update: Update, ctx) -> str:
         return "\n".join(lines)
 
     from trader.api.rest import BitunixRestClient, BitunixError
+    from trader.engine_enhanced import _entry_price_of
     client = BitunixRestClient()
     try:
         resp = await client.get_pending_positions()
@@ -789,9 +818,13 @@ async def _positions(args: str, update: Update, ctx) -> str:
             return "_No open positions_"
         lines = ["*📋 Open Positions:*"]
         for p in positions[:10]:
+            # Same divergence as the engine: Bitunix names this `avgOpenPrice`
+            # here and `entryPrice` on the history endpoint. Accept either,
+            # or the entry column silently reads "0".
+            entry = _entry_price_of(p)
             lines.append(
                 f"• `{p['symbol']}` {p['side']} qty=`{p['qty']}`\n"
-                f"  Entry:`{p.get('avgOpenPrice','?')}` "
+                f"  Entry:`{entry or '?'}` "
                 f"Liq:`{p.get('liqPrice','?')}` "
                 f"uPNL:`{p.get('unrealizedPNL','?')}`"
             )

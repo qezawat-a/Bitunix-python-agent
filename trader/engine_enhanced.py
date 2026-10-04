@@ -62,6 +62,10 @@ class EngineConfig:
     scan_interval: float = 15.0
     guard_interval: float = 15.0
     mid_interval: float = 15.0
+    # How often the Telegram report fires. Lives here so format_report can name
+    # its own cadence in the header; it was only ever in the kv store, so the
+    # header's "every Ns" branch could never be taken.
+    report_interval: int = 30
     # Cached from trading_pairs.
     base_precision: int = 3
     quote_precision: int = 2
@@ -126,6 +130,13 @@ def _norm_side(raw: Any, default: str = "LONG") -> str:
     return default
 
 
+# A price difference below this is string-representation noise, not a real move.
+# `avgOpenPrice` re-rendered as "0.0821" one sync and "0.08210000000000001" the
+# next is the same price; treating it as a change would rewrite the entry (and
+# everything anchored to it) on every tick.
+_PRICE_EPS = 1e-12
+
+
 def _opt_float(value: Any) -> Optional[float]:
     """Parse a REST numeric field that arrives as a string, or may be absent.
 
@@ -138,6 +149,23 @@ def _opt_float(value: Any) -> Optional[float]:
         return float(value)
     except (TypeError, ValueError):
         return None
+
+
+def _entry_price_of(row: Dict[str, Any]) -> float:
+    """Entry/average-open price from a position row, whichever name it uses.
+
+    Bitunix is not consistent across the two position endpoints. The docs for
+    get_pending_positions document `avgOpenPrice`, while get_history_positions
+    documents `entryPrice` — and the official demo's real history response uses
+    `entryPrice`. Reading only one of them means the other endpoint silently
+    yields 0, which zeroes the entry price and every PNL and TP/SL level
+    derived from it. Both are accepted, first non-positive wins nothing.
+    """
+    for key in ("avgOpenPrice", "entryPrice"):
+        val = _opt_float(row.get(key))
+        if val:
+            return val
+    return 0.0
 
 
 @dataclass
@@ -163,6 +191,10 @@ class ManagedPosition:
     margin: float = 0.0
     leverage: float = 0.0
     unrealized_pnl: float = 0.0
+    # When the exchange last reported unrealized_pnl. The position channel only
+    # pushes on events, so without a timestamp there is no way to tell a PNL
+    # that is genuinely unchanged from one that stopped being fed.
+    unrealized_pnl_at: int = 0
     # Exchange-reported liquidation price (REST only; 0 = no liq risk).
     liq_price: float = 0.0
 
@@ -259,6 +291,11 @@ class TradingEngine:
         # Live price snapshot, refreshed by the ticker WS channel; used by
         # /signal and by position PNL when the position channel is sparse.
         self._last_price: float = 0.0
+        # When that price was last refreshed. The ticker channel is the only
+        # live price feed; if the socket drops, `_last_price` keeps its last
+        # value indefinitely, and a report that prints it without an age looks
+        # identical to one printing a real current price.
+        self._last_price_at: int = 0
         # Last signal the engine produced — what /signal reports.
         self._latest_signal: dict = {}
         # Whether report must be re-armed on boot (persisted by store).
@@ -273,12 +310,21 @@ class TradingEngine:
         # Clock-driven loop: scan, account guard, position resync.
         self._periodic_task: Optional[asyncio.Task] = None
         # Last REST account view, so /signal can show account-level PNL free.
-        self._last_account: Dict[str, float] = {}
+        # Mixed value types: floats, the coin string, a bool and an int stamp.
+        self._last_account: Dict[str, Any] = {}
         # TPSL decided at signal time, keyed by (symbol, side, qty), waiting
         # for the fill to hand back a positionId. Without this the levels are
         # re-derived from ATR after the fill and can differ from the ones the
         # operator was just told about.
         self._pending_tpsl: Dict[tuple, "PositionTPSL"] = {}
+        # Newest-waiting order per (symbol, trade_side). `_pending_tpsl` alone is
+        # keyed by the exact qty string we planned, and Bitunix echoes the filled
+        # qty back in its own formatting ("455" vs "455.000"), so that key does
+        # not reliably match the fill. Adoption used to fall through to the
+        # unbounded ATR defaults when it missed, which silently replaced the
+        # liquidation-bounded stop we had announced with one that had no
+        # liquidation awareness at all. This index makes the match structural.
+        self._pending_tpsl_side: Dict[tuple, "PositionTPSL"] = {}
         # Last warned liquidation distance per position, to avoid re-warning
         # on every guard tick while a position sits near its liquidation.
         self._liq_warned: Dict[str, float] = {}
@@ -309,15 +355,37 @@ class TradingEngine:
         positions = []
         total_upnl = 0.0
         total_margin = 0.0
+        total_mixed = False
         for pos in self._open_positions.values():
             tpsl = pos.tpsl
             price = pos.current_price or self._last_price
             # Prefer the exchange's own uPNL; fall back to deriving it from
-            # price movement so the number is never silently zero.
+            # price movement so the number is never silently zero. Say which
+            # one it is — a derived figure and an exchange figure are not the
+            # same claim, and the report should not present one as the other.
             upnl = pos.unrealized_pnl
+            source = "exchange"
+            # How old the exchange figure is. The position channel pushes only
+            # on events, so uPNL legitimately goes quiet between them; past a
+            # couple of sync cycles it is more likely to have stopped being fed
+            # than to be genuinely unchanged, and quoting it as a live exchange
+            # number would be a claim we cannot support.
+            if pos.unrealized_pnl_at and upnl:
+                stale_pnl = int(time.time()) - pos.unrealized_pnl_at > 120
+            else:
+                stale_pnl = False
             if not upnl and pos.entry_price and price:
                 d = price - pos.entry_price
                 upnl = d * float(pos.qty or 0) * (1 if pos.side == "LONG" else -1)
+                source = "derived"
+            elif stale_pnl:
+                # Show the fresh figure instead of the frozen one.
+                if pos.entry_price and price:
+                    d = price - pos.entry_price
+                    upnl = d * float(pos.qty or 0) * (1 if pos.side == "LONG" else -1)
+                    source = "derived"
+            if not upnl and not pos.entry_price:
+                source = "unknown"
             positions.append({
                 "id": pos.position_id,
                 "symbol": pos.symbol,
@@ -327,6 +395,7 @@ class TradingEngine:
                 "price": price,
                 "pnl_pct": pos.unrealized_pnl_pct,
                 "pnl_usdt": upnl,
+                "pnl_source": source,
                 "tp": tpsl.tp_price if tpsl else None,
                 "sl": tpsl.sl_price if tpsl else None,
                 "liq": pos.liq_price,
@@ -344,6 +413,11 @@ class TradingEngine:
             })
             total_upnl += upnl
             total_margin += pos.margin or 0.0
+            # The total is a sum of values that may come from different places.
+            # Track that, so the sum is not presented as a single exchange
+            # figure when part of it is a local estimate.
+            if source != "exchange":
+                total_mixed = True
 
         acct = self._last_account or {}
         # A negative equity would flip the sign of the displayed percentage and
@@ -363,16 +437,33 @@ class TradingEngine:
             # percentage as unknown rather than as a confident wrong number.
             if total_upnl and (pct > 0) != (total_upnl > 0):
                 pct = 0.0
+        # Age of the price the whole report is built on. `False` means it is
+        # fresh enough to quote as current; anything else tells the caller to
+        # label it instead of passing it off as live.
+        price_age = int(time.time()) - self._last_price_at if self._last_price_at else None
+        acct_age = int(time.time()) - acct["at"] if acct.get("at") else None
+        # A clock that steps backwards yields a negative age, which every
+        # `> threshold` test treats as fresh. Clamp at zero so a backwards step
+        # reports "just updated" rather than hiding an arbitrarily old price.
+        if price_age is not None:
+            price_age = max(0, price_age)
+        if acct_age is not None:
+            acct_age = max(0, acct_age)
         return {
             "running": self._running,
             "paper": self.cfg.paper,
             "symbol": self.cfg.symbol,
             "timeframes": list(self.cfg.timeframes),
             "price": self._last_price,
+            "price_age_s": price_age,
+            "price_stale": price_age is None or price_age > 60,
+            "acct_age_s": acct_age,
             "signal": sig,
             "positions": positions,
             "total_pnl_usdt": round(total_upnl, 4),
             "total_pnl_pct": round(pct, 2),
+            "total_pnl_source": ("exchange" if positions and not total_mixed
+                                 else "derived" if positions else "unknown"),
             "account": acct,
             "candles": {tf: len(v) for tf, v in self._klines.items()},
         }
@@ -464,6 +555,14 @@ class TradingEngine:
                     # avgOpenPrice/liqPrice, so entry price and liquidation
                     # price only ever come from here.
                     await self.sync_positions()
+                    # The account snapshot feeds the reported equity and the
+                    # "% of equity" denominator. It used to be refreshed only
+                    # inside _place_trade, so between trades — which is most of
+                    # the time — /signal and the periodic report showed equity,
+                    # available and margin exactly as they were when the last
+                    # order was sent. Hours-old balance next to a live PNL is
+                    # how a losing position gets reported as a healthy account.
+                    await self._get_account()
 
                 if now >= next_guard:
                     next_guard = now + guard
@@ -609,8 +708,16 @@ class TradingEngine:
         if price <= 0:
             return
         self._last_price = price
+        self._last_price_at = int(time.time())
         for pos_id, pos in list(self._open_positions.items()):
-            pnl_pct = self._pnl_pct(pos, price)
+            # Pass the stored exchange uPNL on EVERY path. The position channel
+            # only pushes on events, so between pushes `pos.unrealized_pnl` is
+            # the last thing the exchange said — passing it here means the
+            # ticker and the position push compute ROI the same way instead of
+            # each picking a different branch on message ordering. It is the
+            # price-move fallback below that keeps the value fresh between
+            # pushes, not a second formula.
+            pnl_pct = self._pnl_pct(pos, price, pos.unrealized_pnl or None)
             result = pos.update_price(price, pnl_pct)
             self._apply_tpsl_action(pos_id, pos, result)
     
@@ -698,6 +805,14 @@ class TradingEngine:
 
         price = self._last_price or pos.current_price
         upnl = float(data.get("unrealizedPNL", 0) or 0)
+        # Store the exchange's own uPNL. It was read into a local and handed to
+        # _pnl_pct, then dropped — `unrealized_pnl` stayed at its 0.0 default for
+        # the life of the process, so signal_snapshot's "prefer the exchange"
+        # branch never actually preferred anything and every position fell
+        # through to the locally derived figure.
+        if upnl:
+            pos.unrealized_pnl = upnl
+            pos.unrealized_pnl_at = int(time.time())
         pnl_pct = self._pnl_pct(pos, price, upnl if upnl else None)
 
         result = pos.update_price(price, pnl_pct)
@@ -815,12 +930,9 @@ class TradingEngine:
         """Best available entry price: the REST snapshot's, else the live price."""
         row = self._position_snapshot.get(str(data.get("positionId", "")))
         if row:
-            try:
-                avg = float(row.get("avgOpenPrice", 0) or 0)
-                if avg > 0:
-                    return avg
-            except (TypeError, ValueError):
-                pass
+            entry = _entry_price_of(row)
+            if entry > 0:
+                return entry
         return self._last_price
 
     def _to_dataframe(self, tf: str = None) -> Optional[pd.DataFrame]:
@@ -1082,6 +1194,7 @@ class TradingEngine:
         if price <= 0:
             return
         self._last_price = price
+        self._last_price_at = int(time.time())
 
         pair = await self._load_pair()
         base_prec = self.cfg.base_precision
@@ -1166,6 +1279,7 @@ class TradingEngine:
         # runs afterwards as a reconciliation pass, and is what places the
         # PARTIAL ladder, which cannot be expressed on the order.
         self._pending_tpsl[(self.cfg.symbol, side, qty_str)] = tpsl
+        self._pending_tpsl_side[(self.cfg.symbol, side)] = tpsl
         try:
             # PARTIAL owns its profit targets via the ladder, so the order
             # carries the position-wide STOP only — sending a position-level TP
@@ -1194,6 +1308,7 @@ class TradingEngine:
                                          if tpsl.tp_price else None)
         except BitunixError as e:
             self._pending_tpsl.pop((self.cfg.symbol, side, qty_str), None)
+            self._pending_tpsl_side.pop((self.cfg.symbol, side), None)
             logger.error(f"order failed: {e}")
             self._notify(f"❌ Order failed: [{e.code}] {e.msg}")
             self._latest_signal["opened"] = False
@@ -1283,22 +1398,90 @@ class TradingEngine:
         The position only exists after the market fill, and by then the ATR has
         moved on. Re-deriving the levels here would put stops on the exchange
         that differ from the ones just announced in Telegram, so match the
-        waiting order by (symbol, side, qty) and adopt its state machine.
+        waiting order and adopt its state machine.
+
+        Matching is by (symbol, trade_side) first and qty only as a tiebreaker.
+        An exact qty-string match is unreliable: we floor the planned quantity to
+        basePrecision ourselves, while the exchange echoes the fill back in its
+        own formatting, so "455" and "455.000" are the same position and the
+        exact key missed. When that happened the position silently fell back to
+        the ATR defaults from init_tpsl — stops with no liquidation bound, which
+        is how a reported SL of 0.08171060558526559 replaced the planned
+        0.08186 and ended up flagged SL>LIQ.
         """
         sym = pos.symbol
         side = "LONG" if pos.side == "LONG" else "SHORT"
         trade_side = "BUY" if side == "LONG" else "SELL"
-        for key in ((sym, trade_side, str(pos.qty)), (sym, trade_side)):
-            pending = self._pending_tpsl.pop(key, None)
-            if pending is not None:
-                pos.tpsl = pending
-                pos.tpsl.entry_price = pos.entry_price or pending.entry_price
-                pos.tpsl.best_price = pos.entry_price
-                return
+        side_key = (sym, trade_side)
+
+        pending = self._pending_tpsl.pop((sym, trade_side, str(pos.qty)), None)
+        indexed = self._pending_tpsl_side.get(side_key)
+        if indexed is not None:
+            # An exact-qty match wins; otherwise the newest waiting order for
+            # this symbol and direction is the fill we are looking at.
+            if pending is None or indexed is pending:
+                pending = indexed
+        if pending is not None:
+            self._pending_tpsl_side.pop(side_key, None)
+            # Drop any other stale key for this side so it cannot be adopted by
+            # a later, unrelated fill.
+            for key in [k for k in self._pending_tpsl
+                        if len(k) == 3 and k[0] == sym and k[1] == trade_side]:
+                self._pending_tpsl.pop(key, None)
+            pos.tpsl = pending
+            pos.tpsl.entry_price = pos.entry_price or pending.entry_price
+            pos.tpsl.best_price = pos.entry_price
+            # The fill can differ from the plan by a tick; re-check the geometry
+            # against the real entry so an adopted stop is never left on the
+            # wrong side of it.
+            pos.tpsl._sanitise_levels()
+            return
+
         # Nothing waiting (position predates this process): keep the ATR-derived
-        # levels init_tpsl built, but split the ladder at exchange precision.
+        # levels init_tpsl built, but split the ladder at exchange precision and
+        # bound the stop inside liquidation, because these levels were never
+        # through _plan_risk and carry no liquidation awareness of their own.
         if pos.tpsl:
             pos.tpsl.set_qty_precision(self.cfg.base_precision)
+            if pos.liq_price:
+                self._bound_sl_inside_liq(pos)
+
+    def _bound_sl_inside_liq(self, pos: "ManagedPosition") -> bool:
+        """Pull the stop inside the liquidation price, if it is not already.
+
+        Only _plan_risk's levels are liquidation-bounded. Anything built outside
+        it — an ATR default for an adopted position, a fill that slipped — can
+        sit on the far side of liquidation, where the exchange closes the
+        position before the stop can ever fill. A stop there is not a stop.
+        """
+        tpsl = pos.tpsl
+        liq = pos.liq_price
+        entry = pos.entry_price
+        if not tpsl or not liq or liq <= 0 or not entry or tpsl.sl_price is None:
+            return False
+        long = pos.side == "LONG"
+        # Liquidation must be on the losing side of entry, or there is no
+        # meaningful room to bound against.
+        if (long and liq >= entry) or (not long and liq <= entry):
+            return False
+        inside = tpsl.sl_price > liq if long else tpsl.sl_price < liq
+        if inside:
+            return False
+
+        room = abs(liq - entry)
+        buffer = max(0.0, min(50.0, self.cfg.liq_distance_pct)) / 100.0
+        tick = 10 ** -self.cfg.quote_precision
+        if long:
+            new_sl = liq + max(room * buffer, tick)
+            new_sl = min(new_sl, entry - tick)      # stay off entry
+        else:
+            new_sl = liq - max(room * buffer, tick)
+            new_sl = max(new_sl, entry + tick)
+        tpsl.sl_price = new_sl
+        tpsl._sanitise_levels()
+        logger.warning(f"position {pos.position_id} SL {new_sl} pulled inside "
+                       f"liq {liq} (was outside)")
+        return True
 
     async def _attach_position_tpsl(self, pos: "ManagedPosition") -> None:
         """Reconcile the position's protective orders, and place the ladder.
@@ -1314,6 +1497,12 @@ class TradingEngine:
         """
         if self.cfg.paper or not pos.tpsl or pos.tpsl_attached:
             return
+
+        # Last gate before anything reaches the exchange. A stop on the far side
+        # of liquidation can never fill, so if the levels came from anywhere
+        # other than _plan_risk — an adopted position, a slipped fill — bound
+        # them here rather than trusting the caller.
+        moved_sl = self._bound_sl_inside_liq(pos)
 
         already_there = False
         try:
@@ -1352,6 +1541,19 @@ class TradingEngine:
             pos.tpsl_attached = True
             logger.info(f"position {pos.position_id} already has "
                         f"{len(existing)} TP/SL order(s); leaving them alone")
+            if moved_sl:
+                # The stop that is already on the exchange sits beyond
+                # liquidation, so it can never fill. Under CROSS the liquidation
+                # price moves as the account balance moves, which is how a stop
+                # placed correctly at entry drifts outside it later. Rewrite it
+                # rather than just reporting SL>LIQ every cycle.
+                logger.warning(f"rewriting out-of-bounds SL for {pos.position_id}")
+                self._notify(
+                    f"🛠 *Stop rescued*\n"
+                    f"`{pos.symbol}` {pos.side} `{pos.position_id}` — SL was "
+                    f"beyond liquidation and could never fill. Moved inside."
+                )
+                await self._push_position_tpsl(pos)
 
         if pos.tpsl.method is TPSLMethod.PARTIAL:
             await self._place_partial_ladder(pos)
@@ -1473,11 +1675,11 @@ class TradingEngine:
                 continue
             live.add(pid)
             try:
-                entry = float(row.get("avgOpenPrice", 0) or 0)
+                entry = _entry_price_of(row)
             except (TypeError, ValueError):
                 entry = 0.0
             if entry <= 0:
-                logger.warning(f"position {pid} has no avgOpenPrice; skipping")
+                logger.warning(f"position {pid} has no avgOpenPrice/entryPrice; skipping")
                 continue
             pos = self._open_positions.get(pid)
             if pos is None:
@@ -1512,7 +1714,32 @@ class TradingEngine:
                         except (TypeError, ValueError):
                             pass
                 pos.margin = _opt_float(row.get("margin")) or pos.margin
+                # Entry price and leverage must track the exchange on EVERY
+                # sync, not only when the position is first discovered. A
+                # partial close or an add-to-position moves the true average
+                # entry, and keeping the old one reports PNL — and every
+                # TP/SL level anchored to it — against an entry price the
+                # position no longer has.
+                entry = _entry_price_of(row)
+                if entry > 0 and abs(entry - pos.entry_price) > _PRICE_EPS:
+                    logger.info(f"position {pid} entry {pos.entry_price} -> {entry}")
+                    pos.entry_price = entry
+                    if pos.tpsl:
+                        pos.tpsl.entry_price = entry
+                        pos.tpsl._sanitise_levels()
+                        # Deliberately NOT resetting best_price. The trailing
+                        # stop ratchets from the highest price seen since entry;
+                        # rewinding it to the new average entry throws away the
+                        # peak the trail has been tracking and leaves the stop
+                        # looser than it already was.
+                pos.leverage = _opt_float(row.get("leverage")) or pos.leverage
             pos.liq_price = _opt_float(row.get("liqPrice")) or 0.0
+            # Keep the exchange's own uPNL on the position itself, not just in
+            # the log total below.
+            upnl = _opt_float(row.get("unrealizedPNL"))
+            if upnl is not None:
+                pos.unrealized_pnl = upnl
+                pos.unrealized_pnl_at = int(time.time())
 
         # Anything the REST no longer lists is closed.
         for pid in list(self._open_positions):
@@ -1530,12 +1757,17 @@ class TradingEngine:
         """Account TP/SL (model 4): close everything when total PNL crosses."""
         if not self.account_guard.armed:
             return
-        try:
-            resp = await self.rest.get_pending_positions()
-            rows = resp.get("data") or []
-        except Exception as e:
-            logger.error(f"account guard: {e}")
-            return
+        # The guard runs on the same tick as sync_positions, which has just
+        # fetched these very rows and left them in _position_snapshot. Reuse
+        # them; only go back to REST if the snapshot is missing.
+        rows = list(self._position_snapshot.values())
+        if not rows:
+            try:
+                resp = await self.rest.get_pending_positions()
+                rows = resp.get("data") or []
+            except Exception as e:
+                logger.error(f"account guard: {e}")
+                return
         if not rows:
             # Flat again: re-arm, so a later session can hit the same
             # threshold instead of the latch holding until restart.
@@ -1580,7 +1812,7 @@ class TradingEngine:
             if liq <= 0:
                 continue
             side = _norm_side(row.get("side"), "LONG")
-            entry = _opt_float(row.get("avgOpenPrice")) or 0.0
+            entry = _entry_price_of(row)
             qty = _opt_float(row.get("qty")) or 0.0
             margin = _opt_float(row.get("margin")) or 0.0
             leverage = _opt_float(row.get("leverage")) or float(self.cfg.leverage)
@@ -1625,18 +1857,48 @@ class TradingEngine:
                 self._liq_warned.pop(pid, None)
 
     async def _get_account(self) -> Dict[str, Any]:
+        """Fetch the account and cache the fields the reporter renders.
+
+        Field names come straight from get_single_account's documented schema:
+        `marginCoin`, `available`, `frozen`, `margin`, `transfer`, `positionMode`,
+        `crossUnrealizedPNL`, `isolationUnrealizedPNL`, `bonus`.
+
+        There is deliberately no `equity` and no bare `unrealizedPNL` on that
+        endpoint. Reading either one returned None, so equity stayed 0 and the
+        cached account uPNL stayed 0 — the report fell back to margin/available
+        for its denominator and showed the account PNL as flat while positions
+        were open and losing. Equity is therefore DERIVED here, and explicitly
+        labelled as derived in the snapshot so nothing downstream treats it as
+        a field the exchange reported.
+        """
         try:
             resp = await self.rest.get_account(self.cfg.margin_coin)
             acct = account_dict(resp)
             # Cached so /signal and the periodic report can show account-level
             # PNL without spending an API call on every tick.
             if acct:
+                cross = _opt_float(acct.get("crossUnrealizedPNL")) or 0.0
+                iso = _opt_float(acct.get("isolationUnrealizedPNL")) or 0.0
+                upnl = cross + iso
+                available = _opt_float(acct.get("available")) or 0.0
+                margin = _opt_float(acct.get("margin")) or 0.0
+                frozen = _opt_float(acct.get("frozen")) or 0.0
+                # Equity = free balance + committed margin + open PnL. `frozen`
+                # is margin reserved by resting orders; it is already part of
+                # the account's committed capital, so it is added once here and
+                # never double-counted against `margin`.
                 self._last_account = {
-                    "coin": acct.get("coin") or self.cfg.margin_coin,
-                    "available": _opt_float(acct.get("available")) or 0.0,
-                    "equity": _opt_float(acct.get("equity")) or 0.0,
-                    "margin": _opt_float(acct.get("margin")) or 0.0,
-                    "unrealized_pnl": _opt_float(acct.get("unrealizedPNL")) or 0.0,
+                    "coin": acct.get("marginCoin") or self.cfg.margin_coin,
+                    "available": available,
+                    "frozen": frozen,
+                    "margin": margin,
+                    "unrealized_pnl": upnl,
+                    "equity": available + margin + frozen + upnl,
+                    # Bitunix's get_single_account has no equity field, so this
+                    # figure is always derived here. Flagged so the reporters
+                    # can label it rather than present it as an exchange read.
+                    "equity_derived": "equity" not in acct,
+                    "at": int(time.time()),
                 }
             return acct
         except Exception as e:
