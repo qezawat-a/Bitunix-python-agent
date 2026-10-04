@@ -504,6 +504,13 @@ class TradingEngine:
         # a 15m chart would otherwise take five hours of streaming to get them.
         await self._backfill_klines()
 
+        # Load the pair spec NOW so quote_precision is right from the first
+        # tick, the first /signal header, and the first order we send. Before
+        # this the engine printed everything at the default 2 decimals, which
+        # for low-priced altcoins rounded everything to the same ugly number
+        # (0.06, 0.05, …) and hid the real entry / SL / TP.
+        await self._load_pair()
+
         self._periodic_task = asyncio.create_task(self._periodic())
 
         try:

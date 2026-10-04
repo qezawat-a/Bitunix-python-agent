@@ -34,17 +34,24 @@ class SuperTrendStrategy(BaseStrategy):
         # 1 = uptrend, -1 = downtrend
         price = c.iloc[-1]
         st_val = st[st.columns[0]].iloc[-1]   # SUPERT level
+        # Do not round the level to a fixed number of decimals here: every
+        # symbol has its own quotePrecision (STRKUSDT is 5, BTCUSDT is 2).
+        # Formatting with a fixed width in the reason string misleads the
+        # operator and the sl_price would be rounded to the wrong precision
+        # for the exchange. Round to 6 significant figures so the number is
+        # readable but not aggressively rounded.
+        st_val_rounded = float(f"{st_val:.6g}")
 
         if trend_dir == 1 and prev_dir == -1:
             return Signal(Direction.BUY, 0.85,
-                          f"SuperTrend flipped to uptrend, ST level={st_val:.2f}",
-                          sl_price=st_val,
-                          meta={"supertrend": round(st_val, 4)})
+                          f"SuperTrend flipped to uptrend, ST level={st_val_rounded}",
+                          sl_price=st_val_rounded,
+                          meta={"supertrend": st_val_rounded})
         if trend_dir == -1 and prev_dir == 1:
             return Signal(Direction.SELL, 0.85,
-                          f"SuperTrend flipped to downtrend, ST level={st_val:.2f}",
-                          sl_price=st_val,
-                          meta={"supertrend": round(st_val, 4)})
+                          f"SuperTrend flipped to downtrend, ST level={st_val_rounded}",
+                          sl_price=st_val_rounded,
+                          meta={"supertrend": st_val_rounded})
         # Continuation
         if trend_dir == 1:
             return Signal(Direction.BUY, 0.5, f"SuperTrend continues uptrend")
