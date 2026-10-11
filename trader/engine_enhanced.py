@@ -1700,9 +1700,21 @@ class TradingEngine:
         placed = 0
         failure = ""
         for lv, body in zip(levels, orders):
+            # lv.payload() yields wire-style camelCase keys (tpPrice, tpQty, ...),
+            # but place_tpsl_order takes snake_case kwargs. Passing **body raised
+            # TypeError on every rung, so the ladder never placed and every PARTIAL
+            # position fell back to a single TP. Map explicitly.
+            kind = lv.kind.lower()
             try:
                 await self.rest.place_tpsl_order(
-                    symbol=pos.symbol, position_id=pos.position_id, **body
+                    symbol=pos.symbol,
+                    position_id=pos.position_id,
+                    **{
+                        f"{kind}_price": body[f"{kind}Price"],
+                        f"{kind}_qty": body[f"{kind}Qty"],
+                        f"{kind}_order_type": body[f"{kind}OrderType"],
+                        f"{kind}_stop_type": body[f"{kind}StopType"],
+                    },
                 )
                 lv.placed = True       # so a resync cannot re-send this rung
                 placed += 1
