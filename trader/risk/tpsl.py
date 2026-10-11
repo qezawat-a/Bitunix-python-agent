@@ -40,7 +40,21 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import List, Optional
 
-from trader.risk.calculator import split_ratio
+from loguru import logger as log
+
+from trader.risk.calculator import split_ratio, price_precision, placeable
+
+
+# The trigger series every TP/SL we send watches.
+#
+# Bitunix judges liquidation on the MARK price, so a stop on LAST_PRICE makes
+# the stop and the liquidation engine watch two different series. Mark can cross
+# the liquidation threshold while last is still on the safe side of the stop, in
+# which case the exchange closes the position before the stop ever fires — the
+# one outcome the stop exists to prevent. On MARK_PRICE both watch the same
+# series, and since _sanitise_levels and the liq clamp keep the stop strictly
+# inside liq, the stop deterministically fires first.
+STOP_TYPE = "MARK_PRICE"
 
 
 class TPSLMethod(Enum):
@@ -81,6 +95,23 @@ class TPSLAction(Enum):
     LADDER = "ladder"          # partial ladder needs placing
 
 
+def _format_price(price: float, precision: int) -> str:
+    """Render a trigger price onto the exchange's tick grid.
+
+    Formatting alone rounds, which silently moves the level; this snaps first
+    and says so when the level was not on the grid, because a TP/SL the
+    exchange rejects leaves the position with no stop.
+    """
+    if not placeable(price, precision):
+        snapped = round(price, precision)
+        log.warning(
+            f"trigger price {price} is not on the {precision}-decimal tick "
+            f"grid; snapping to {snapped}"
+        )
+        price = snapped
+    return price_precision(price, precision)
+
+
 @dataclass
 class TPSLLevel:
     """One rung of a Partial TP/SL ladder."""
@@ -90,10 +121,10 @@ class TPSLLevel:
     placed: bool = False
 
     def payload(self, precision: int) -> dict:
-        p = f"{self.price:.{precision}f}"
+        p = _format_price(self.price, precision)
         return {f"{self.kind.lower()}Price": p, f"{self.kind.lower()}Qty": self.qty,
                 f"{self.kind.lower()}OrderType": "MARKET",
-                f"{self.kind.lower()}StopType": "LAST_PRICE"}
+                f"{self.kind.lower()}StopType": STOP_TYPE}
 
 
 @dataclass
@@ -368,12 +399,12 @@ class PositionTPSL:
         close the position twice over.
         """
         body: dict = {
-            "slPrice": f"{self.sl_price:.{self.quote_precision}f}",
-            "slStopType": "LAST_PRICE",
+            "slPrice": _format_price(self.sl_price, self.quote_precision),
+            "slStopType": STOP_TYPE,
         }
         if self.tp_price and self.method is not TPSLMethod.PARTIAL:
-            body["tpPrice"] = f"{self.tp_price:.{self.quote_precision}f}"
-            body["tpStopType"] = "LAST_PRICE"
+            body["tpPrice"] = _format_price(self.tp_price, self.quote_precision)
+            body["tpStopType"] = STOP_TYPE
         return body
 
     def unplaced_levels(self) -> List[TPSLLevel]:

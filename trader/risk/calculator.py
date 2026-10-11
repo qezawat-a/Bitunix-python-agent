@@ -289,10 +289,17 @@ def price_precision(price: float, quote_precision: int = 2) -> str:
     return f"{price:.{quote_precision}f}"
 
 
-def placeable(price: float, precision: int, side: str) -> bool:
-    """Reject TP/SL prices the exchange would refuse.
+def placeable(price: float, precision: int) -> bool:
+    """True when `price` can be expressed exactly at `precision` decimals.
 
-    trigger prices are off by 1 unit) can be rejected at placement time.
+    The exchange accepts trigger prices on its own tick grid, so a level that
+    falls between two ticks (a computed stop landing a fraction off, or float
+    error in a price that only looks aligned) can be rejected at placement
+    time. A rejected TP/SL is worse than a late one: the position then runs
+    with no stop at all, which is the failure this guards against.
+
+    Callers format with `_format_price` in trader.risk.tpsl, which snaps to the
+    grid; this is the predicate that tells them when a snap was necessary.
     """
     if price <= 0:
         return False

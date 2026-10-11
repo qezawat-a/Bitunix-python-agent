@@ -1339,10 +1339,10 @@ class TradingEngine:
                 trade_side="OPEN" if self.cfg.position_mode == "HEDGE" else None,
                 reduce_only=False,
                 sl_price=price_precision(tpsl.sl_price, quote_prec),
-                sl_stop_type="LAST_PRICE",
+                sl_stop_type="MARK_PRICE",
                 sl_order_type="MARKET",
                 tp_price=price_precision(tpsl.tp_price, quote_prec) if attach_tp else None,
-                tp_stop_type="LAST_PRICE" if attach_tp else None,
+                tp_stop_type="MARK_PRICE" if attach_tp else None,
                 tp_order_type="MARKET" if attach_tp else None,
             )
             order_id = (resp.get("data") or {}).get("orderId", "")
@@ -1424,12 +1424,27 @@ class TradingEngine:
             resp = await self.rest.get_position_tiers(self.cfg.symbol)
             rows = resp.get("data") or []
             if not rows:
+                # Not fatal, but it must not be quiet: the liquidation math now
+                # runs on a hardcoded BTCUSDT snapshot that is wrong for any
+                # other symbol, so every liq-derived stop is computed off the
+                # wrong maintenance rate.
+                logger.error(
+                    f"get_position_tiers returned no rows for {self.cfg.symbol} "
+                    f"— falling back to the hardcoded BTC table; liquidation "
+                    f"estimates for this symbol are unreliable"
+                )
                 return
             rows = sorted(rows, key=lambda r: float(r.get("level", 0) or 0))
             set_tiers(rows)
             logger.info(f"risk tiers loaded for {self.cfg.symbol}: {len(rows)} levels")
         except Exception as e:
-            logger.warning(f"get_position_tiers failed, using default tiers: {e}")
+            # Same consequence as the empty case above: liquidation runs on the
+            # fallback table, so this deserves an error line not a warning.
+            logger.error(
+                f"get_position_tiers failed for {self.cfg.symbol}: {e} — using "
+                f"the hardcoded BTC tier table; liquidation estimates are "
+                f"unreliable"
+            )
 
     async def _push_position_tpsl(self, pos: "ManagedPosition") -> None:
         """Rewrite the position's TP/SL after a local level change.
@@ -1730,7 +1745,7 @@ class TradingEngine:
                 tp_price=price_precision(tp, self.cfg.quote_precision),
                 tp_qty=str(qty),
                 tp_order_type="MARKET",
-                tp_stop_type="LAST_PRICE",
+                tp_stop_type="MARK_PRICE",
             )
             logger.info(f"fallback TP placed for {pos.position_id} @ {tp} qty {qty}")
             self._notify(
