@@ -184,6 +184,12 @@ class PositionTPSL:
         # already splits at exchange precision rather than the 3-decimal guess.
         self._qty_precision = 3
 
+        # Keep the caller's inputs as given so to_dict() can persist them and
+        # from_dict() can rebuild the same overlay settings after a restart.
+        self.breakeven_threshold_pct = breakeven_threshold_pct
+        self.trailing_trigger_roi_pct = trailing_trigger_roi_pct
+        self.trailing_stop_pct = trailing_stop_pct
+
         self.breakeven_threshold = breakeven_threshold_pct / 100.0
         self.trailing_trigger_roi = trailing_trigger_roi_pct / 100.0
         self.trailing_stop_pct_val = trailing_stop_pct / 100.0
@@ -430,6 +436,13 @@ class PositionTPSL:
             "breakeven_set": self.breakeven_set,
             "trailing_active": self.trailing_active,
             "trailing_mode": self.trailing_mode.value,
+            "trailing_distance": self.trailing_distance,
+            "trailing_stop_pct": self.trailing_stop_pct,
+            "trailing_trigger_roi_pct": self.trailing_trigger_roi_pct,
+            "breakeven_threshold_pct": self.breakeven_threshold_pct,
+            "quote_precision": self.quote_precision,
+            "partial_ratios": list(self.partial_ratios),
+            "qty_precision": self._qty_precision,
             "best_price": self.best_price,
             "method": self.method.value,
             "activation_price": self.activation_price,
@@ -445,8 +458,15 @@ class PositionTPSL:
             side=data["side"],
             atr_value=data.get("atr", 0.0),
             method=data.get("method", "POSITION"),
+            breakeven_threshold_pct=data.get("breakeven_threshold_pct", 2.0),
+            trailing_trigger_roi_pct=data.get("trailing_trigger_roi_pct", 5.0),
+            trailing_stop_pct=data.get("trailing_stop_pct", 0.5),
             trailing_mode=data.get("trailing_mode", "RATIO"),
+            trailing_distance=data.get("trailing_distance", 0.3),
+            partial_ratios=data.get("partial_ratios"),
+            quote_precision=data.get("quote_precision", 2),
         )
+        tpsl._qty_precision = data.get("qty_precision", 3)
         tpsl.tp_price = data.get("tp_price", tpsl.tp_price)
         tpsl.sl_price = data.get("sl_price", tpsl.sl_price)
         tpsl.breakeven_set = data.get("breakeven_set", False)
