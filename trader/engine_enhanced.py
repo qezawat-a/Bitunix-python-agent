@@ -19,7 +19,7 @@ from trader.risk.calculator import (calc_order_unit, atr_stop_loss, atr_take_pro
                                     _floor_to)
 from trader.risk.liquidation import (calc_liquidation, calc_liquidation_cross,
                                       get_mmr, is_near_liquidation, set_tiers)
-from trader.risk.tpsl import (AccountGuard, PositionTPSL, TPSLAction,
+from trader.risk.tpsl import (STOP_TYPE, AccountGuard, PositionTPSL, TPSLAction,
                               TPSLMethod, TPSLUpdate)
 
 
@@ -1339,10 +1339,10 @@ class TradingEngine:
                 trade_side="OPEN" if self.cfg.position_mode == "HEDGE" else None,
                 reduce_only=False,
                 sl_price=price_precision(tpsl.sl_price, quote_prec),
-                sl_stop_type="MARK_PRICE",
+                sl_stop_type=STOP_TYPE,
                 sl_order_type="MARKET",
                 tp_price=price_precision(tpsl.tp_price, quote_prec) if attach_tp else None,
-                tp_stop_type="MARK_PRICE" if attach_tp else None,
+                tp_stop_type=STOP_TYPE if attach_tp else None,
                 tp_order_type="MARKET" if attach_tp else None,
             )
             order_id = (resp.get("data") or {}).get("orderId", "")
@@ -1766,7 +1766,7 @@ class TradingEngine:
                 tp_price=price_precision(tp, self.cfg.quote_precision),
                 tp_qty=str(qty),
                 tp_order_type="MARKET",
-                tp_stop_type="MARK_PRICE",
+                tp_stop_type=STOP_TYPE,
             )
             logger.info(f"fallback TP placed for {pos.position_id} @ {tp} qty {qty}")
             self._notify(
