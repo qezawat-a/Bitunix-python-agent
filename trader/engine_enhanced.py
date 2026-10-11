@@ -329,12 +329,10 @@ class TradingEngine:
         # A queue fixes both: the exact-qty match still wins when the exchange
         # echoes our formatting, and otherwise the OLDEST waiting order is the
         # right one, because fills arrive in placement order.
-        self._pending_tpsl_side: Dict[tuple, List[tuple]] = {}
-        # orderId -> (symbol, trade_side), so a terminal order status can drop
-        # the queue entry it created. `_on_order_update` used to only notify on
-        # CANCELED/REJECTED, leaving those levels adoptable by a later same-side
-        # fill — levels computed against an entry price that no longer applied.
-        self._pending_order_key: Dict[str, tuple] = {}
+        # (symbol, trade_side) -> waiting entries {"qty", "tpsl", "order_id"}.
+        # Each entry carries its own orderId, so a terminal status removes
+        # exactly the order that died and nothing else.
+        self._pending_tpsl_side: Dict[tuple, List[dict]] = {}
         # Last warned liquidation distance per position, to avoid re-warning
         # on every guard tick while a position sits near its liquidation.
         self._liq_warned: Dict[str, float] = {}
@@ -1326,7 +1324,9 @@ class TradingEngine:
         # rather than one websocket push later. _attach_position_tpsl still
         # runs afterwards as a reconciliation pass, and is what places the
         # PARTIAL ladder, which cannot be expressed on the order.
-        self._pending_tpsl_side.setdefault((self.cfg.symbol, side), []).append((qty_str, tpsl))
+        queue_key = (self.cfg.symbol, side)
+        pending_entry = {"qty": qty_str, "tpsl": tpsl, "order_id": ""}
+        self._pending_tpsl_side.setdefault(queue_key, []).append(pending_entry)
         try:
             # PARTIAL owns its profit targets via the ladder, so the order
             # carries the position-wide STOP only — sending a position-level TP
@@ -1349,7 +1349,7 @@ class TradingEngine:
             logger.info(f"order placed: {order_id}")
             if order_id:
                 # So a later CANCELED/REJECTED can drop exactly this entry.
-                self._pending_order_key[str(order_id)] = (self.cfg.symbol, side)
+                pending_entry["order_id"] = str(order_id)
             self._notify(f"✅ Order placed: `{order_id}` qty=`{qty_str}`")
             self._latest_signal["opened"] = True
             self._latest_signal["order_id"] = order_id
@@ -1360,7 +1360,7 @@ class TradingEngine:
             # The order never reached the book, so its levels must not stay
             # adoptable. Remove only this entry — a same-side sibling order may
             # still be live and waiting for its own fill.
-            self._dequeue_pending_tpsl(self.cfg.symbol, side, qty_str)
+            self._remove_pending_entry(queue_key, pending_entry)
             logger.error(f"order failed: {e}")
             self._notify(f"❌ Order failed: [{e.code}] {e.msg}")
             self._latest_signal["opened"] = False
@@ -1478,50 +1478,47 @@ class TradingEngine:
         except Exception as e:
             logger.error(f"modify_position_tpsl error for {pos.position_id}: {e}")
 
+    def _remove_pending_entry(self, key: tuple, entry: dict) -> None:
+        """Remove one specific waiting entry, pruning the queue if it empties."""
+        queue = self._pending_tpsl_side.get(key)
+        if not queue:
+            return
+        # Remove by identity: two entries can hold equal-looking fields.
+        queue[:] = [e for e in queue if e is not entry]
+        if not queue:
+            self._pending_tpsl_side.pop(key, None)
+
     def _dequeue_pending_tpsl(self, symbol: str, trade_side: str,
                               qty_str: str = None) -> Optional["PositionTPSL"]:
-        """Remove one waiting entry and return it.
+        """Remove one waiting entry and return its PositionTPSL.
 
-        `qty_str` selects a specific entry — the one whose planned quantity
-        matches the fill exactly. Without it the OLDEST entry is taken, which
-        is the correct default because fills arrive in placement order.
+        `qty_str` selects the entry whose planned quantity matches the fill
+        exactly. Without a match the OLDEST entry is taken, because fills arrive
+        in placement order.
         """
         key = (symbol, trade_side)
         queue = self._pending_tpsl_side.get(key)
         if not queue:
             return None
-        idx = 0
-        if qty_str is not None:
-            for i, (q, _) in enumerate(queue):
-                if q == qty_str:
-                    idx = i
-                    break
-        qty, pending = queue.pop(idx)
-        if not queue:
-            self._pending_tpsl_side.pop(key, None)
-        return pending
+        chosen = next((e for e in queue if e["qty"] == qty_str), queue[0]) \
+            if qty_str is not None else queue[0]
+        self._remove_pending_entry(key, chosen)
+        return chosen["tpsl"]
 
     def _drop_pending_for_order(self, order_id: str) -> None:
-        """Drop the queue entry a terminal order status invalidated.
+        """Drop exactly the queue entry whose order just went terminal.
 
         A CANCELED or REJECTED order never fills, so its levels must not stay
-        adoptable by a later same-side fill. Keyed by orderId because the
-        status push is the only place that knows which order died, and by then
-        the qty it was planned with is the only handle left on the entry.
+        adoptable by a later same-side fill. Matching on the orderId means a
+        live same-side sibling keeps its levels.
         """
-        key = self._pending_order_key.pop(str(order_id), None)
-        if key is None:
+        if not order_id:
             return
-        symbol, trade_side = key
-        queue = self._pending_tpsl_side.get(key)
-        if not queue:
-            return
-        # Drop the oldest entry for this side: the terminal status does not say
-        # which of several same-side orders it was, and the oldest is both the
-        # most likely and the one whose levels are now most certainly stale.
-        queue.pop(0)
-        if not queue:
-            self._pending_tpsl_side.pop(key, None)
+        for key, queue in list(self._pending_tpsl_side.items()):
+            for entry in queue:
+                if entry["order_id"] == str(order_id):
+                    self._remove_pending_entry(key, entry)
+                    return
 
     def _adopt_pending_tpsl(self, pos: "ManagedPosition") -> None:
         """Hand the fill the exact levels chosen when the signal fired.
