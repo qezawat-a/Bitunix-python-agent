@@ -521,7 +521,16 @@ class TradingEngine:
         # this the engine printed everything at the default 2 decimals, which
         # for low-priced altcoins rounded everything to the same ugly number
         # (0.06, 0.05, …) and hid the real entry / SL / TP.
-        await self._load_pair()
+        #
+        # A failure here is not fatal: the engine still reports, streams and
+        # manages existing positions. It does mean order sizing will refuse
+        # every new trade, which is the right trade-off — better to sit out
+        # than to send an order at a guessed precision.
+        try:
+            await self._load_pair()
+        except OrderUnitError as e:
+            logger.error(f"{e} — new trades will be refused until this succeeds")
+            self._notify(f"⚠️ {e}")
 
         self._periodic_task = asyncio.create_task(self._periodic())
 
@@ -1227,7 +1236,15 @@ class TradingEngine:
         self._last_price = price
         self._last_price_at = int(time.time())
 
-        pair = await self._load_pair()
+        try:
+            pair = await self._load_pair()
+        except OrderUnitError as e:
+            # Raised when the exchange gave us no spec for this symbol. Sizing
+            # would have to guess precision and skip every limit clamp, so stop
+            # here instead of formatting an order the exchange may reject.
+            logger.warning(f"pair spec unavailable, skipping trade: {e}")
+            self._notify(f"⚠️ Skipping trade: {e}")
+            return
         base_prec = self.cfg.base_precision
         quote_prec = self.cfg.quote_precision
         side = "BUY" if direction == Direction.BUY else "SELL"
@@ -1370,15 +1387,25 @@ class TradingEngine:
             row = next((r for r in rows if r.get("symbol") == self.cfg.symbol), None) \
                 or (rows[0] if rows else {})
         except Exception as e:
-            logger.warning(f"trading_pairs failed: {e}")
+            logger.error(f"trading_pairs failed for {self.cfg.symbol}: {e}")
             row = {}
-        if row:
-            self._pair = row
-            try:
-                self.cfg.base_precision = int(row.get("basePrecision", 3))
-                self.cfg.quote_precision = int(row.get("quotePrecision", 2))
-            except (TypeError, ValueError):
-                pass
+        if not row:
+            # No spec means no precision and no min/max limits, so every qty and
+            # price we format is a guess and no clamp applies. Refuse rather than
+            # send an order the exchange may reject — a rejected TP/SL leaves the
+            # position with no stop at all. OrderUnitError so the trade path's
+            # existing handler skips the trade and says why.
+            raise OrderUnitError(
+                f"no trading_pairs row for {self.cfg.symbol} — cannot size or "
+                f"format an order without basePrecision/quotePrecision and "
+                f"minTradeVolume/maxMarketOrderVolume"
+            )
+        self._pair = row
+        try:
+            self.cfg.base_precision = int(row.get("basePrecision", 3))
+            self.cfg.quote_precision = int(row.get("quotePrecision", 2))
+        except (TypeError, ValueError):
+            pass
         await self._load_risk_tiers()
         return self._pair
 
