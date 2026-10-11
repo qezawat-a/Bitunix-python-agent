@@ -1400,12 +1400,21 @@ class TradingEngine:
                 f"format an order without basePrecision/quotePrecision and "
                 f"minTradeVolume/maxMarketOrderVolume"
             )
-        self._pair = row
+        # A present-but-malformed precision must fail closed too. Falling back to
+        # the 3/2 defaults would size and format every order at the wrong
+        # precision for this pair, the same silent guess as a missing row.
         try:
-            self.cfg.base_precision = int(row.get("basePrecision", 3))
-            self.cfg.quote_precision = int(row.get("quotePrecision", 2))
-        except (TypeError, ValueError):
-            pass
+            base_prec = int(row["basePrecision"])
+            quote_prec = int(row["quotePrecision"])
+        except (KeyError, TypeError, ValueError):
+            raise OrderUnitError(
+                f"trading_pairs row for {self.cfg.symbol} has no valid "
+                f"basePrecision/quotePrecision ({row.get('basePrecision')!r}, "
+                f"{row.get('quotePrecision')!r}) — refusing to guess"
+            )
+        self._pair = row
+        self.cfg.base_precision = base_prec
+        self.cfg.quote_precision = quote_prec
         await self._load_risk_tiers()
         return self._pair
 
