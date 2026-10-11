@@ -9,8 +9,12 @@ Documented quirks that are reproduced deliberately:
   * get_leverage_margin_mode has no "and" in the path.
   * data is an ARRAY for some endpoints and an OBJECT for others — see each
     method's docstring rather than assuming a shape.
-  * Trigger-type enums are documented as MARK_PRICE/LAST_PRICE but the site's
-    own examples send the short forms "MARK" / "LAST".
+  * Trigger-type enums are MARK_PRICE / LAST_PRICE. The Golang and PHP demo
+    samples write the short form "MARK" in hand-built untyped maps, but the
+    official Java SDK declares the field as an enum whose values are exactly
+    LAST_PRICE and MARK_PRICE, and every language sends the long form for the
+    kline `type` field. The long form is the real vocabulary; "MARK" is an
+    unchecked example, not a second accepted spelling.
 """
 from __future__ import annotations
 
