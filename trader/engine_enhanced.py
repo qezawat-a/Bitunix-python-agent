@@ -312,19 +312,29 @@ class TradingEngine:
         # Last REST account view, so /signal can show account-level PNL free.
         # Mixed value types: floats, the coin string, a bool and an int stamp.
         self._last_account: Dict[str, Any] = {}
-        # TPSL decided at signal time, keyed by (symbol, side, qty), waiting
-        # for the fill to hand back a positionId. Without this the levels are
-        # re-derived from ATR after the fill and can differ from the ones the
-        # operator was just told about.
-        self._pending_tpsl: Dict[tuple, "PositionTPSL"] = {}
-        # Newest-waiting order per (symbol, trade_side). `_pending_tpsl` alone is
-        # keyed by the exact qty string we planned, and Bitunix echoes the filled
-        # qty back in its own formatting ("455" vs "455.000"), so that key does
-        # not reliably match the fill. Adoption used to fall through to the
-        # unbounded ATR defaults when it missed, which silently replaced the
-        # liquidation-bounded stop we had announced with one that had no
-        # liquidation awareness at all. This index makes the match structural.
-        self._pending_tpsl_side: Dict[tuple, "PositionTPSL"] = {}
+        # TPSL decided at signal time, waiting for the fill to hand back a
+        # positionId. Without this the levels are re-derived from ATR after the
+        # fill and can differ from the ones the operator was just told about.
+        #
+        # Keyed by (symbol, trade_side) to a QUEUE of (qty_str, tpsl) in
+        # placement order. Two things forced this shape:
+        #   - the exact qty string we plan is not how Bitunix echoes the fill
+        #     back ("455" vs "455.000"), so a qty-keyed dict misses; adoption
+        #     used to fall through to the unbounded ATR defaults, silently
+        #     replacing the liquidation-bounded stop we had announced with one
+        #     that had no liquidation awareness at all;
+        #   - one entry per side collapses two same-side orders onto the newest,
+        #     so the first fill could adopt the second order's levels and the
+        #     second fill was left with nothing to adopt.
+        # A queue fixes both: the exact-qty match still wins when the exchange
+        # echoes our formatting, and otherwise the OLDEST waiting order is the
+        # right one, because fills arrive in placement order.
+        self._pending_tpsl_side: Dict[tuple, List[tuple]] = {}
+        # orderId -> (symbol, trade_side), so a terminal order status can drop
+        # the queue entry it created. `_on_order_update` used to only notify on
+        # CANCELED/REJECTED, leaving those levels adoptable by a later same-side
+        # fill — levels computed against an entry price that no longer applied.
+        self._pending_order_key: Dict[str, tuple] = {}
         # Last warned liquidation distance per position, to avoid re-warning
         # on every guard tick while a position sits near its liquidation.
         self._liq_warned: Dict[str, float] = {}
@@ -365,26 +375,28 @@ class TradingEngine:
             # same claim, and the report should not present one as the other.
             upnl = pos.unrealized_pnl
             source = "exchange"
+            # Whether the exchange has EVER reported a PNL for this position.
+            # `unrealized_pnl` defaults to 0.0, so "no figure yet" and "flat"
+            # are the same number and the value alone cannot tell them apart —
+            # the stamp is what does. Reading the value instead relabelled a
+            # genuine exchange 0.0 as a local estimate rendered with a "~", and
+            # for a position that had never reported, failed to derive one.
+            exchange_reported = bool(pos.unrealized_pnl_at)
             # How old the exchange figure is. The position channel pushes only
             # on events, so uPNL legitimately goes quiet between them; past a
             # couple of sync cycles it is more likely to have stopped being fed
             # than to be genuinely unchanged, and quoting it as a live exchange
             # number would be a claim we cannot support.
-            if pos.unrealized_pnl_at and upnl:
-                stale_pnl = int(time.time()) - pos.unrealized_pnl_at > 120
-            else:
-                stale_pnl = False
-            if not upnl and pos.entry_price and price:
+            stale_pnl = exchange_reported and \
+                int(time.time()) - pos.unrealized_pnl_at > 120
+            if (not exchange_reported or stale_pnl) and pos.entry_price and price:
+                # Nothing has been reported yet, or the last figure is too old
+                # to quote — show the freshly derived one instead.
                 d = price - pos.entry_price
                 upnl = d * float(pos.qty or 0) * (1 if pos.side == "LONG" else -1)
                 source = "derived"
-            elif stale_pnl:
-                # Show the fresh figure instead of the frozen one.
-                if pos.entry_price and price:
-                    d = price - pos.entry_price
-                    upnl = d * float(pos.qty or 0) * (1 if pos.side == "LONG" else -1)
-                    source = "derived"
-            if not upnl and not pos.entry_price:
+            elif not exchange_reported and not pos.entry_price:
+                # No figure and no entry to derive one from.
                 source = "unknown"
             positions.append({
                 "id": pos.position_id,
@@ -811,16 +823,24 @@ class TradingEngine:
             pos.leverage = float(data["leverage"])
 
         price = self._last_price or pos.current_price
-        upnl = float(data.get("unrealizedPNL", 0) or 0)
+        # Read the RAW field before coercing: a flat position reports exactly
+        # 0.0, and "the push carried no PNL" and "the PNL is zero" are different
+        # facts that the coerced float makes indistinguishable.
+        raw_upnl = data.get("unrealizedPNL")
+        upnl = float(raw_upnl or 0)
         # Store the exchange's own uPNL. It was read into a local and handed to
         # _pnl_pct, then dropped — `unrealized_pnl` stayed at its 0.0 default for
         # the life of the process, so signal_snapshot's "prefer the exchange"
         # branch never actually preferred anything and every position fell
         # through to the locally derived figure.
-        if upnl:
+        # Gated on the field being present, not on it being non-zero: the
+        # exchange reporting a flat position as exactly 0.0 is a real figure,
+        # and skipping the write left the freshness stamp unreset so the clock
+        # aged while the PNL was genuinely unchanged.
+        if raw_upnl is not None:
             pos.unrealized_pnl = upnl
             pos.unrealized_pnl_at = int(time.time())
-        pnl_pct = self._pnl_pct(pos, price, upnl if upnl else None)
+        pnl_pct = self._pnl_pct(pos, price, upnl if raw_upnl is not None else None)
 
         result = pos.update_price(price, pnl_pct)
         self._apply_tpsl_action(pos_id, pos, result)
@@ -993,6 +1013,10 @@ class TradingEngine:
         if status == "FILLED":
             self._notify(f"✅ Order filled: `{data.get('orderId', '')}`")
         elif status in ("CANCELED", "CANCELLED", "REJECTED", "EXPIRED"):
+            # An order that will never fill must not leave its TPSL levels
+            # adoptable: a later same-side fill would pick up levels computed
+            # against this order's entry price.
+            self._drop_pending_for_order(data.get("orderId", ""))
             self._notify(f"⚠️ Order {status}: `{data.get('orderId', '')}`")
 
     def _on_tpsl_update(self, msg: Dict[str, Any]) -> None:
@@ -1285,8 +1309,7 @@ class TradingEngine:
         # rather than one websocket push later. _attach_position_tpsl still
         # runs afterwards as a reconciliation pass, and is what places the
         # PARTIAL ladder, which cannot be expressed on the order.
-        self._pending_tpsl[(self.cfg.symbol, side, qty_str)] = tpsl
-        self._pending_tpsl_side[(self.cfg.symbol, side)] = tpsl
+        self._pending_tpsl_side.setdefault((self.cfg.symbol, side), []).append((qty_str, tpsl))
         try:
             # PARTIAL owns its profit targets via the ladder, so the order
             # carries the position-wide STOP only — sending a position-level TP
@@ -1307,6 +1330,9 @@ class TradingEngine:
             )
             order_id = (resp.get("data") or {}).get("orderId", "")
             logger.info(f"order placed: {order_id}")
+            if order_id:
+                # So a later CANCELED/REJECTED can drop exactly this entry.
+                self._pending_order_key[str(order_id)] = (self.cfg.symbol, side)
             self._notify(f"✅ Order placed: `{order_id}` qty=`{qty_str}`")
             self._latest_signal["opened"] = True
             self._latest_signal["order_id"] = order_id
@@ -1314,8 +1340,10 @@ class TradingEngine:
             self._latest_signal["tp"] = (price_precision(tpsl.tp_price, quote_prec)
                                          if tpsl.tp_price else None)
         except BitunixError as e:
-            self._pending_tpsl.pop((self.cfg.symbol, side, qty_str), None)
-            self._pending_tpsl_side.pop((self.cfg.symbol, side), None)
+            # The order never reached the book, so its levels must not stay
+            # adoptable. Remove only this entry — a same-side sibling order may
+            # still be live and waiting for its own fill.
+            self._dequeue_pending_tpsl(self.cfg.symbol, side, qty_str)
             logger.error(f"order failed: {e}")
             self._notify(f"❌ Order failed: [{e.code}] {e.msg}")
             self._latest_signal["opened"] = False
@@ -1399,6 +1427,51 @@ class TradingEngine:
         except Exception as e:
             logger.error(f"modify_position_tpsl error for {pos.position_id}: {e}")
 
+    def _dequeue_pending_tpsl(self, symbol: str, trade_side: str,
+                              qty_str: str = None) -> Optional["PositionTPSL"]:
+        """Remove one waiting entry and return it.
+
+        `qty_str` selects a specific entry — the one whose planned quantity
+        matches the fill exactly. Without it the OLDEST entry is taken, which
+        is the correct default because fills arrive in placement order.
+        """
+        key = (symbol, trade_side)
+        queue = self._pending_tpsl_side.get(key)
+        if not queue:
+            return None
+        idx = 0
+        if qty_str is not None:
+            for i, (q, _) in enumerate(queue):
+                if q == qty_str:
+                    idx = i
+                    break
+        qty, pending = queue.pop(idx)
+        if not queue:
+            self._pending_tpsl_side.pop(key, None)
+        return pending
+
+    def _drop_pending_for_order(self, order_id: str) -> None:
+        """Drop the queue entry a terminal order status invalidated.
+
+        A CANCELED or REJECTED order never fills, so its levels must not stay
+        adoptable by a later same-side fill. Keyed by orderId because the
+        status push is the only place that knows which order died, and by then
+        the qty it was planned with is the only handle left on the entry.
+        """
+        key = self._pending_order_key.pop(str(order_id), None)
+        if key is None:
+            return
+        symbol, trade_side = key
+        queue = self._pending_tpsl_side.get(key)
+        if not queue:
+            return
+        # Drop the oldest entry for this side: the terminal status does not say
+        # which of several same-side orders it was, and the oldest is both the
+        # most likely and the one whose levels are now most certainly stale.
+        queue.pop(0)
+        if not queue:
+            self._pending_tpsl_side.pop(key, None)
+
     def _adopt_pending_tpsl(self, pos: "ManagedPosition") -> None:
         """Hand the fill the exact levels chosen when the signal fired.
 
@@ -1407,34 +1480,23 @@ class TradingEngine:
         that differ from the ones just announced in Telegram, so match the
         waiting order and adopt its state machine.
 
-        Matching is by (symbol, trade_side) first and qty only as a tiebreaker.
-        An exact qty-string match is unreliable: we floor the planned quantity to
-        basePrecision ourselves, while the exchange echoes the fill back in its
-        own formatting, so "455" and "455.000" are the same position and the
-        exact key missed. When that happened the position silently fell back to
-        the ATR defaults from init_tpsl — stops with no liquidation bound, which
-        is how a reported SL of 0.08171060558526559 replaced the planned
-        0.08186 and ended up flagged SL>LIQ.
+        The position push carries no orderId, so the match is (symbol, side)
+        plus quantity as a tiebreaker. An exact qty-string match is unreliable:
+        we floor the planned quantity to basePrecision ourselves, while the
+        exchange echoes the fill back in its own formatting, so "455" and
+        "455.000" are the same position and the exact key missed. When that
+        happened the position silently fell back to the ATR defaults from
+        init_tpsl — stops with no liquidation bound, which is how a reported SL
+        of 0.08171060558526559 replaced the planned 0.08186 and ended up
+        flagged SL>LIQ.
         """
         sym = pos.symbol
         side = "LONG" if pos.side == "LONG" else "SHORT"
         trade_side = "BUY" if side == "LONG" else "SELL"
         side_key = (sym, trade_side)
 
-        pending = self._pending_tpsl.pop((sym, trade_side, str(pos.qty)), None)
-        indexed = self._pending_tpsl_side.get(side_key)
-        if indexed is not None:
-            # An exact-qty match wins; otherwise the newest waiting order for
-            # this symbol and direction is the fill we are looking at.
-            if pending is None or indexed is pending:
-                pending = indexed
+        pending = self._dequeue_pending_tpsl(sym, trade_side, str(pos.qty))
         if pending is not None:
-            self._pending_tpsl_side.pop(side_key, None)
-            # Drop any other stale key for this side so it cannot be adopted by
-            # a later, unrelated fill.
-            for key in [k for k in self._pending_tpsl
-                        if len(k) == 3 and k[0] == sym and k[1] == trade_side]:
-                self._pending_tpsl.pop(key, None)
             pos.tpsl = pending
             pos.tpsl.entry_price = pos.entry_price or pending.entry_price
             pos.tpsl.best_price = pos.entry_price
