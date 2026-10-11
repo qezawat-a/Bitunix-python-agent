@@ -149,23 +149,51 @@ def calc_order_unit(
 # ── The other two units ──────────────────────────────────────────────────────
 
 def qty_from_nominal(nominal: float, price: float, leverage: int,
-                     base_precision: int = 3) -> OrderUnit:
+                     base_precision: int = 3,
+                     maintenance_rate: float = 0.005,
+                     min_trade_volume: Optional[float] = None,
+                     max_market_order_volume: Optional[float] = None) -> OrderUnit:
     """Size from Nominal Value (USDT contract size).
 
     qty = nominal / price;  cost = nominal / leverage.
+
+    The maintenance rate belongs in the liquidation estimate exactly as it does
+    in calc_order_unit(): omitting it put liq at `price * (1 - 1/lev)` for a
+    long, which is FURTHER below entry than the real thing and so reports more
+    room before liquidation than the position actually has.
     """
     if price <= 0 or nominal <= 0:
         raise OrderUnitError("nominal and price must be positive")
-    qty = _floor_to(nominal / price, base_precision)
+    if leverage <= 0:
+        raise OrderUnitError("leverage must be positive")
+
+    raw_qty = nominal / price
+    clamped = ""
+    if min_trade_volume is not None and raw_qty < min_trade_volume:
+        raw_qty = min_trade_volume
+        clamped = f"min_qty({min_trade_volume})"
+    if max_market_order_volume is not None and raw_qty > max_market_order_volume:
+        raw_qty = max_market_order_volume
+        clamped = f"max_qty({max_market_order_volume})"
+
+    qty = _floor_to(raw_qty, base_precision)
     if qty <= 0:
         raise OrderUnitError("nominal too small for this price at this precision")
+
+    # Margin for the order actually sent, i.e. after the floor and any clamp —
+    # the same convention calc_order_unit() uses. Quoting the pre-floor figure
+    # overstated the margin a clamped order needs.
+    final_notional = qty * price
     return OrderUnit(
         qty=f"{qty:.{base_precision}f}",
-        notional=qty * price,
-        required_margin=nominal / leverage,
-        liq_price_long=price * (1 - 1 / leverage),
-        liq_price_short=price * (1 + 1 / leverage),
+        notional=final_notional,
+        required_margin=final_notional / leverage,
+        liq_price_long=price * (1 - 1 / leverage + maintenance_rate),
+        liq_price_short=price * (1 + 1 / leverage - maintenance_rate),
         unit="NOMINAL",
+        clamped=clamped,
+        min_qty=min_trade_volume or 0.0,
+        max_qty=max_market_order_volume or 0.0,
     )
 
 
