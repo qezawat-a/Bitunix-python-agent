@@ -329,10 +329,10 @@ class PositionTPSL:
         if current_price <= self.sl_price if long else current_price >= self.sl_price:
             return TPSLUpdate(TPSLAction.SL_HIT, reason=f"price hit SL {self.sl_price}")
 
-        # 2. Trailing activation (RATIO and INTERVAL alike).
+        # 2. Trailing activation (RATIO and INTERVAL alike). Triggered on ROI,
+        #    the same leveraged PnL measure breakeven uses, not a raw price move.
         if not self.trailing_active and self.method is TPSLMethod.TRAILING:
-            reached = (current_price >= self.activation_price if long
-                       else current_price <= self.activation_price)
+            reached = unrealized_pnl_pct >= self.trailing_trigger_roi * 100
             if reached:
                 self.trailing_active = True
                 old_sl = self.sl_price

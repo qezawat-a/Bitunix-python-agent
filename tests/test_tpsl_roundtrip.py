@@ -64,3 +64,22 @@ def test_from_dict_defaults_for_legacy_payload():
     assert restored.trailing_trigger_roi == 0.05
     assert restored.breakeven_threshold == 0.02
     assert restored.quote_precision == 2
+
+
+def test_trailing_activates_on_roi_not_price_move():
+    # 5% ROI trigger. At 10x leverage a 0.5% price move is already 5% ROI,
+    # so trailing must activate here even though price is far below the
+    # raw 5% price activation level.
+    tpsl = _make(trailing_trigger_roi_pct=5.0, sl_price=1.20)
+    result = tpsl.update(1.2345 * 1.005, unrealized_pnl_pct=5.0)
+
+    assert result.action.value == "trailing_start"
+    assert tpsl.trailing_active is True
+
+
+def test_trailing_does_not_activate_below_roi_trigger():
+    tpsl = _make(trailing_trigger_roi_pct=5.0, sl_price=1.20)
+    result = tpsl.update(1.2345 * 1.10, unrealized_pnl_pct=4.9)
+
+    assert result.action.value != "trailing_start"
+    assert tpsl.trailing_active is False
