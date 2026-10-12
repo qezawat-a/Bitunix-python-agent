@@ -292,8 +292,9 @@ async def cmd_set(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         else:
             models = await core.llm.list_models()
             pretty = "\n".join(f"- {m}" for m in models[:60])
+            current = s.model.strip() or "AUTO (resolved from /models)"
             await reply(update, f"Models on <code>{s.provider}</code> "
-                                f"(current: {s.model}):\n{pretty}")
+                                f"(current: {current}):\n{pretty}")
         return
     if key == "provider":
         if len(args) < 2:

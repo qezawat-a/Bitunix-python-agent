@@ -92,6 +92,15 @@ def pick_model(working: list[str]) -> str:
     for candidate in AUTO_PREFERENCE:
         if candidate in working:
             return candidate
+    # Gateways commonly expose provider-qualified IDs such as
+    # ``ag/claude-sonnet-5-5``.  Prefer those by family when the short
+    # preference name is not an exact ID.
+    lowered = [(model, model.lower()) for model in working]
+    for candidate in AUTO_PREFERENCE:
+        needle = candidate.lower()
+        match = next((model for model, value in lowered if needle in value), None)
+        if match:
+            return match
     return working[0]
 
 
@@ -198,16 +207,20 @@ class LLMClient:
             # Get available models from /models endpoint
             models = await self.list_models(provider)
             if models:
-                # For custom providers, test each until one works
+                # For custom providers, test a few candidates first.  A model
+                # probe can fail independently of /models (gateway overload,
+                # unsupported probe parameters, or a transient 5xx), so a
+                # failed probe must not turn a non-empty /models response into
+                # "no model available".  The discovered list is still the
+                # authoritative fallback.
                 if provider == "custom":
-                    for candidate in models[:10]:  # Test first 10
+                    for candidate in models[:10]:
                         if await self._test_model(base, headers, candidate):
                             self._model_cache[provider] = candidate
                             return candidate
-                else:
-                    # Non-custom: just pick first
-                    self._model_cache[provider] = models[0]
-                    return models[0]
+                selected = pick_model(models)
+                self._model_cache[provider] = selected
+                return selected
         except Exception:
             pass
         
