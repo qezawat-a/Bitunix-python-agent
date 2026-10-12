@@ -184,15 +184,12 @@ class PositionTPSL:
         # already splits at exchange precision rather than the 3-decimal guess.
         self._qty_precision = 3
 
-        # Keep the caller's inputs as given so to_dict() can persist them and
-        # from_dict() can rebuild the same overlay settings after a restart.
+        # The percent inputs are the only stored copy of these settings; the
+        # fractions are derived below so to_dict() and from_dict() round-trip
+        # one value per setting.
         self.breakeven_threshold_pct = breakeven_threshold_pct
         self.trailing_trigger_roi_pct = trailing_trigger_roi_pct
         self.trailing_stop_pct = trailing_stop_pct
-
-        self.breakeven_threshold = breakeven_threshold_pct / 100.0
-        self.trailing_trigger_roi = trailing_trigger_roi_pct / 100.0
-        self.trailing_stop_pct_val = trailing_stop_pct / 100.0
 
         self.breakeven_set = False
         self.trailing_active = False
@@ -269,6 +266,20 @@ class PositionTPSL:
                 if reward < risk:
                     self.tp_price = (self.entry_price + 2 * risk if long
                                      else self.entry_price - 2 * risk)
+
+    # ── Overlay settings (fractions derived from the percent inputs) ───────
+
+    @property
+    def breakeven_threshold(self) -> float:
+        return self.breakeven_threshold_pct / 100.0
+
+    @property
+    def trailing_trigger_roi(self) -> float:
+        return self.trailing_trigger_roi_pct / 100.0
+
+    @property
+    def trailing_stop_pct_val(self) -> float:
+        return self.trailing_stop_pct / 100.0
 
     # ── Partial ladder ──────────────────────────────────────────────────
 
