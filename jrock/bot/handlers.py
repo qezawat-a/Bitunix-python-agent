@@ -182,7 +182,7 @@ def make_ctx(core, user_id: int, chat_id: int) -> AgentContext:
 
 
 def spawn(core, update: Update, task_text: str, role: str = "general",
-          directive: str = "", context=None) -> None:
+          directive: str = "", context=None, announce: bool = True) -> None:
     """Run an agent task in the background so /quit can cancel it."""
     user = update.effective_user.id
     chat_id = update.effective_chat.id
@@ -196,7 +196,7 @@ def spawn(core, update: Update, task_text: str, role: str = "general",
 
     async def _job():
         try:
-            if role == "general" or directive:
+            if announce and (role == "general" or directive):
                 await update.effective_message.reply_text(
                     f"🧠 {role} agent started. /quit stops it.")
             answer = await agent.run(task_text, history=history)
@@ -923,7 +923,17 @@ async def on_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         f = WORKSPACE_UPLOADS / f"photo_{int(time.time())}.jpg"
         await msg.photo[-1].download_to_drive(custom_path=str(f))
         extra += f"\n\n[Photo saved to: {f}]"
-    spawn(core, update, text + extra, context=context)
+    # A background task used to send the acknowledgement only after Telegram
+    # scheduled it.  If the app was busy or model discovery was slow, the user
+    # saw complete silence.  Confirm receipt synchronously, then run the model
+    # in the background so long requests still do not block polling.
+    try:
+        await msg.reply_text("🧠 Working on it…")
+        spawn(core, update, text + extra, context=context, announce=False)
+    except Exception as e:
+        await update.effective_message.reply_text(
+            f"⚠️ I received your message but could not start the agent: {e}"
+        )
 
 
 def register(app: Application, core) -> None:

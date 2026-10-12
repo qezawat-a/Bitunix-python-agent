@@ -207,17 +207,13 @@ class LLMClient:
             # Get available models from /models endpoint
             models = await self.list_models(provider)
             if models:
-                # For custom providers, test a few candidates first.  A model
-                # probe can fail independently of /models (gateway overload,
-                # unsupported probe parameters, or a transient 5xx), so a
-                # failed probe must not turn a non-empty /models response into
-                # "no model available".  The discovered list is still the
-                # authoritative fallback.
-                if provider == "custom":
-                    for candidate in models[:10]:
-                        if await self._test_model(base, headers, candidate):
-                            self._model_cache[provider] = candidate
-                            return candidate
+                # Do not probe custom models serially here.  Each probe can
+                # take up to eight seconds, so ten unavailable/slow models
+                # made a simple Telegram message appear to receive no answer
+                # for more than a minute.  `/models` is the provider's
+                # authoritative discovery endpoint; send the first preferred
+                # discovered model and let the actual chat request report a
+                # real model error if one occurs.
                 selected = pick_model(models)
                 self._model_cache[provider] = selected
                 return selected
