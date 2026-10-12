@@ -13,7 +13,7 @@ from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandl
 
 from ..agent import harness, research, team, workflows
 from ..agent.context import AgentContext
-from ..agent.core import REGISTRY, Agent
+from ..agent.core import REGISTRY, Agent, FEEDBACK
 from ..agent.tools import generator, apps
 from ..config import BASE_DIR, DATA_DIR, Settings
 from ..llm.providers import PROVIDERS, default_model
@@ -186,13 +186,17 @@ def spawn(core, update: Update, task_text: str, role: str = "general",
     """Run an agent task in the background so /quit can cancel it."""
     user = update.effective_user.id
     chat_id = update.effective_chat.id
+    app = (context or update).application
+    if user in core.running:
+        app.create_task(reply(update, _busy_message(core.running[user])), update=update)
+        return
     actx = make_ctx(core, user, chat_id)
     if not actx.session_id:
         actx.session_id = core.sessions.create(user, task_text[:60])
         core.active_session[user] = actx.session_id
     agent = Agent(actx, role=role, directive=directive)
-    core.running[user] = agent
     history = core.sessions.load(actx.session_id, 12) if core.resume.get(user) else []
+    core.running[user] = agent
 
     async def _job():
         try:
@@ -202,16 +206,30 @@ def spawn(core, update: Update, task_text: str, role: str = "general",
             answer = await agent.run(task_text, history=history)
             core.resume[user] = True
             await media.send_long(core.bot, chat_id, answer or "Done.")
-            if core.memory and core.settings.learning:
-                await _auto_learn(core, user, task_text, answer)
+            # Release chat before optional learning, and do not make a second
+            # model request for every greeting.
+            if core.running.get(user) is agent:
+                core.running.pop(user, None)
+            if core.memory and core.settings.learning and FEEDBACK.search(task_text):
+                try:
+                    await asyncio.wait_for(_auto_learn(core, user, task_text, answer), 10)
+                except asyncio.TimeoutError:
+                    pass  # The answer was already delivered; learning is optional.
         except asyncio.CancelledError:
             await core.bot.send_message(chat_id, "Stopped by /quit.")
         except Exception as e:
             await core.bot.send_message(chat_id, f"Agent error: {e}")
         finally:
-            core.running.pop(user, None)
+            if core.running.get(user) is agent:
+                core.running.pop(user, None)
 
-    (context or update).application.create_task(_job())
+    app.create_task(_job(), update=update)
+
+
+def _busy_message(agent: Agent) -> str:
+    elapsed = max(0, int(time.monotonic() - agent.started_at))
+    return (f"I'm still {agent.phase} for your previous message ({elapsed}s). "
+            "I haven't started another request. Use /quit to cancel it, then send your message again.")
 
 
 async def _auto_learn(core, user_id: int, task: str, answer: str) -> None:
@@ -914,6 +932,10 @@ async def on_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     text = msg.text or msg.caption or ""
     if not text:
         return
+    active = core.running.get(update.effective_user.id)
+    if active:
+        await msg.reply_text(_busy_message(active))
+        return
     extra = ""
     if msg.document is not None:
         f = WORKSPACE_UPLOADS / (msg.document.file_name or "upload.bin")
@@ -923,10 +945,8 @@ async def on_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         f = WORKSPACE_UPLOADS / f"photo_{int(time.time())}.jpg"
         await msg.photo[-1].download_to_drive(custom_path=str(f))
         extra += f"\n\n[Photo saved to: {f}]"
-    # A background task used to send the acknowledgement only after Telegram
-    # scheduled it.  If the app was busy or model discovery was slow, the user
-    # saw complete silence.  Confirm receipt synchronously, then run the model
-    # in the background so long requests still do not block polling.
+    # Confirm receipt before session startup, then run the bounded model wait
+    # in the background so long requests do not block command handling.
     try:
         await msg.reply_text("🧠 Working on it…")
         spawn(core, update, text + extra, context=context, announce=False)

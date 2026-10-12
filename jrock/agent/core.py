@@ -3,7 +3,9 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import re
+import time
 
 from .context import AgentContext
 from .tools import build_registry
@@ -16,6 +18,10 @@ FEEDBACK = re.compile(
     r"i meant|what i meant)")
 
 TOOL_ROLE = "tool"
+MEMORY_TIMEOUT = 5.0
+MODEL_WAIT_TIMEOUT = 105.0
+PROGRESS_INTERVAL = 15.0
+log = logging.getLogger(__name__)
 
 
 def sanitize_messages(messages: list[dict]) -> list[dict]:
@@ -65,6 +71,8 @@ class Agent:
         self.tools = self._pick_tools()
         self.messages: list[dict] = []
         self.task: str = ""
+        self.phase = "starting"
+        self.started_at = time.monotonic()
 
     def _pick_tools(self) -> dict:
         if self.role == "plan":
@@ -89,7 +97,14 @@ class Agent:
                 model = self.ctx.llm.resolve_model()
             except Exception:
                 model = s.model
-        memory_block = await self._memory_block()
+        # Memory enriches chat, but a sleeping/unreachable database must not
+        # prevent a greeting from ever reaching the model.
+        self.phase = "loading memory"
+        try:
+            memory_block = await asyncio.wait_for(self._memory_block(), MEMORY_TIMEOUT)
+        except Exception as e:
+            log.warning("Skipping unavailable chat memory: %s", type(e).__name__)
+            memory_block = ""
         parts = [
             "You are J-Rock, a full AI agent running on Telegram. You work step "
             "by step: call tools to learn and to change things, then answer.",
@@ -167,10 +182,42 @@ class Agent:
         return ""
 
     # --------------------------------------------------------------- loop
+    async def _wait_for_model(self, tool_specs: list[dict]) -> dict:
+        """Keep the model wait bounded, observable, and cancellable by /quit."""
+        self.phase = "waiting for model"
+        request = asyncio.create_task(asyncio.wait_for(
+            self.ctx.llm.chat(sanitize_messages(self.messages),
+                              tools=tool_specs or None, on_progress=self.ctx.say),
+            MODEL_WAIT_TIMEOUT,
+        ))
+        stopped = asyncio.create_task(self.cancel.wait())
+        try:
+            while True:
+                done, _ = await asyncio.wait(
+                    (request, stopped), timeout=PROGRESS_INTERVAL,
+                    return_when=asyncio.FIRST_COMPLETED,
+                )
+                if stopped in done:
+                    raise asyncio.CancelledError
+                if request in done:
+                    try:
+                        return request.result()
+                    except asyncio.TimeoutError as e:
+                        raise RuntimeError(
+                            "Model request exceeded the time limit. Use /set model <id> "
+                            "to select another route."
+                        ) from e
+                await self.ctx.say("⏳ Still waiting for the model gateway. /quit cancels this request.")
+        finally:
+            for task in (request, stopped):
+                if not task.done():
+                    task.cancel()
+            await asyncio.gather(request, stopped, return_exceptions=True)
+
     async def run(self, task: str, history: list[dict] | None = None) -> str:
         self.task = task
-        self.messages = list(history or [])[-20:]
-        self.messages.append({"role": "system", "content": await self.system_prompt()})
+        self.messages = [{"role": "system", "content": await self.system_prompt()}]
+        self.messages.extend(m for m in list(history or [])[-20:] if m.get("role") != "system")
         self.messages.append({"role": "user", "content": task})
         self._log("user", task)
 
@@ -184,8 +231,7 @@ class Agent:
             if self.cancel.is_set():
                 return final or "Stopped by /quit."
             try:
-                msg = await self.ctx.llm.chat(sanitize_messages(self.messages),
-                                              tools=tool_specs or None)
+                msg = await self._wait_for_model(tool_specs)
             except Exception as e:
                 return f"Model error: {e}"
             content = msg.get("content") or ""
@@ -200,7 +246,10 @@ class Agent:
             if content.strip():
                 await self.ctx.say(f"💭 {content.strip()[:300]}")
             for tc in calls:
+                if self.cancel.is_set():
+                    return "Stopped by /quit."
                 name = tc["function"]["name"]
+                self.phase = f"running tool {name}"
                 try:
                     args = json.loads(tc["function"].get("arguments") or "{}")
                 except json.JSONDecodeError:
@@ -214,7 +263,11 @@ class Agent:
         else:
             final = "Reached the step limit. Last message:\n" + \
                     (msg.get("content") or "(none)")
-        await self._maybe_learn(task)
+        self.phase = "finishing"
+        try:
+            await asyncio.wait_for(self._maybe_learn(task), MEMORY_TIMEOUT)
+        except Exception as e:
+            log.warning("Could not save chat lesson: %s", type(e).__name__)
         return final
 
     async def _dispatch(self, name: str, args: dict) -> str:

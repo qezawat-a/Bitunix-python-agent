@@ -6,21 +6,25 @@ from __future__ import annotations
 
 import json
 import time
-from pathlib import Path
 import asyncio
-from typing import Any, Optional
+import hashlib
+import re
+from typing import Any, Awaitable, Callable, Optional
 
 import httpx
 
 from ..config import Settings
-from .providers import PROVIDERS, provider_meta
+from .providers import provider_meta
 
-TIMEOUT = 300.0
+TIMEOUT = 60.0
+AUTO_ATTEMPT_TIMEOUT = 30.0
+MAX_AUTO_ATTEMPTS = 3
+DISCOVERY_TIMEOUT = 10.0
+CATALOG_TTL = 300.0
+FAILURE_COOLDOWN = 120.0
 
 # AUTO / empty AI_MODEL means "pick a model that actually works on this key".
 AUTO_TOKENS = {"", "auto", "none"}
-WORKING_REPORT = Path(__file__).resolve().parent.parent.parent / "data" / "working_models.json"
-REPORT_TTL = 24 * 3600
 
 # Preference order for AUTO picks
 AUTO_PREFERENCE = (
@@ -74,17 +78,6 @@ def clean_error(status: int, text: str) -> str:
     return body[:300]
 
 
-def _load_working_models() -> list[str]:
-    """Read cached working models if fresh."""
-    try:
-        if time.time() - WORKING_REPORT.stat().st_mtime > REPORT_TTL:
-            return []
-        data = json.loads(WORKING_REPORT.read_text())
-        return [r["model"] for r in data.get("results", []) if r.get("ok")]
-    except Exception:
-        return []
-
-
 def pick_model(working: list[str]) -> str:
     """Choose from working set by preference, else first available."""
     if not working:
@@ -105,20 +98,30 @@ def pick_model(working: list[str]) -> str:
 
 
 class LLMError(RuntimeError):
-    pass
+    def __init__(self, message: str, *, retryable: bool = False,
+                 cooldown: float = FAILURE_COOLDOWN, route_blocked: bool = False):
+        super().__init__(message)
+        self.retryable = retryable
+        self.cooldown = cooldown
+        self.route_blocked = route_blocked
 
 
 class LLMClient:
     def __init__(self, settings: Settings) -> None:
         self.s = settings
         self._model_cache: dict[str, str] = {}  # provider -> resolved model
+        self._catalog: dict[str, tuple[float, list[str]]] = {}
+        self._cooldowns: dict[tuple[str, str], float] = {}
+        self._route_cooldowns: dict[tuple[str, str], float] = {}
+        self._scopes: dict[str, tuple[str, str]] = {}
+        self._discovery_errors: dict[str, str] = {}
 
     # ------------------------------------------------------------------ meta
     def _endpoint(self, provider: str | None = None, model: str | None = None) -> tuple[str, dict]:
         provider = provider or self.s.provider
         meta = provider_meta(provider)
         base = meta["base_url"]
-        if provider == "local":
+        if provider in ("local", "custom"):
             base = self.s.api_keys.get("local_base_url", base)
         if provider == "anthropic":
             base = "https://api.anthropic.com"
@@ -132,99 +135,111 @@ class LLMClient:
         else:
             if key:
                 headers["Authorization"] = f"Bearer {key}"
-        return base, headers
+        return base.rstrip("/"), headers
+
+    def _check_scope(self, provider: str) -> None:
+        """Never reuse model availability across gateway/key changes."""
+        base, headers = self._endpoint(provider)
+        fingerprint = hashlib.sha256(json.dumps(headers, sort_keys=True).encode()).hexdigest()
+        scope = (base, fingerprint)
+        if self._scopes.get(provider) != scope:
+            self._scopes[provider] = scope
+            self._model_cache.pop(provider, None)
+            self._catalog.pop(provider, None)
+            self._discovery_errors.pop(provider, None)
+            self._cooldowns = {k: v for k, v in self._cooldowns.items() if k[0] != provider}
+            self._route_cooldowns = {
+                k: v for k, v in self._route_cooldowns.items() if k[0] != provider
+            }
+
+    @staticmethod
+    def _route(model: str) -> str:
+        return model.split("/", 1)[0] if "/" in model else ""
+
+    def _eligible(self, provider: str, model: str) -> bool:
+        now = time.monotonic()
+        return (bool(model) and self._cooldowns.get((provider, model), 0) <= now
+                and self._route_cooldowns.get((provider, self._route(model)), 0) <= now)
+
+    def _next_model(self, provider: str, attempted: list[str]) -> str:
+        models = self._catalog.get(provider, (0, []))[1]
+        available = [m for m in models if m not in attempted and self._eligible(provider, m)]
+        # A gateway route can have many aliases backed by the same account.
+        # Prefer a different route before spending another attempt on it.
+        routes = {self._route(m) for m in attempted}
+        diverse = [m for m in available if self._route(m) not in routes]
+        return pick_model(diverse or available)
 
     async def list_models(self, provider: str | None = None) -> list[str]:
         """Fetch available models from /models endpoint."""
         provider = provider or self.s.provider
+        self._check_scope(provider)
         try:
             base, headers = self._endpoint(provider)
             url = f"{base}/models"
-            async with httpx.AsyncClient(timeout=20) as client:
-                r = await client.get(url, headers=headers)
+            async with httpx.AsyncClient(timeout=DISCOVERY_TIMEOUT) as client:
+                r = await asyncio.wait_for(client.get(url, headers=headers), DISCOVERY_TIMEOUT)
                 if r.status_code == 200:
                     data = parse_json_body(r.text)
                     ids = [m.get("id") for m in data.get("data", []) if m.get("id")]
                     if ids:
-                        return sorted(ids)[:200]
-        except Exception:
-            pass
-        return provider_meta(provider).get("models", [])
-
-    async def _test_model(self, base: str, headers: dict, model: str, timeout: int = 8) -> bool:
-        """Quick test: can this model accept a chat request?"""
-        try:
-            body = {
-                "model": model,
-                "messages": [{"role": "user", "content": "hi"}],
-                "max_tokens": 10,
-                "temperature": 0.5,
-            }
-            async with httpx.AsyncClient(timeout=timeout) as client:
-                r = await client.post(f"{base}/chat/completions", headers=headers, json=body)
-            # 400 auth errors or missing model errors are expected; other errors may succeed
-            return r.status_code < 500
-        except asyncio.TimeoutError:
-            return False
-        except Exception:
-            return False
+                        models = sorted(set(ids))
+                        self._catalog[provider] = (time.monotonic(), models)
+                        self._discovery_errors.pop(provider, None)
+                        return models
+                    self._discovery_errors[provider] = "/models returned an empty catalog"
+                else:
+                    self._discovery_errors[provider] = (
+                        f"/models -> HTTP {r.status_code}: {clean_error(r.status_code, r.text)}"
+                    )
+        except (asyncio.TimeoutError, httpx.TimeoutException):
+            self._discovery_errors[provider] = f"/models timed out after {DISCOVERY_TIMEOUT:g}s"
+        except httpx.RequestError as e:
+            self._discovery_errors[provider] = f"/models is unreachable ({type(e).__name__})"
+        except (ValueError, TypeError, AttributeError):
+            self._discovery_errors[provider] = "/models returned an invalid catalog"
+        return self._catalog.get(provider, (0, provider_meta(provider).get("models", [])))[1]
 
     def resolve_model(self, model: str | None = None,
                       provider: str | None = None) -> str:
         """Sync fallback: resolve model using cached data."""
         provider = provider or self.s.provider
-        model = (model or self.s.model or "").strip()
+        self._check_scope(provider)
+        model = (self.s.model if model is None else model) or ""
+        model = model.strip()
         if model.lower() not in AUTO_TOKENS:
             return model
+        cached = self._model_cache.get(provider, "")
+        if self._eligible(provider, cached):
+            return cached
+        selected = self._next_model(provider, [])
+        if selected:
+            return selected
         if provider != "custom":
             presets = provider_meta(provider).get("models", [])
             return presets[0] if presets else ""
-        return pick_model(_load_working_models())
+        return ""
 
     async def resolve_model_async(self, model: str | None = None,
                                    provider: str | None = None) -> str:
-        """
-        Async: query /models and pick the first available model.
-        
-        For custom providers, tries to find a working model by testing.
-        Falls back to sync resolution if discovery fails.
-        """
+        """Select a listed model without probes; only chat success is cached."""
         provider = provider or self.s.provider
-        model = (model or self.s.model or "").strip()
+        self._check_scope(provider)
+        model = ((self.s.model if model is None else model) or "").strip()
         
         # Non-AUTO model: use as-is
         if model.lower() not in AUTO_TOKENS:
             return model
         
-        # Check cache
-        if provider in self._model_cache:
-            cached = self._model_cache[provider]
-            if cached:
-                return cached
-        
-        try:
-            base, headers = self._endpoint(provider)
-            # Get available models from /models endpoint
+        stamp, models = self._catalog.get(provider, (0, []))
+        if not models or time.monotonic() - stamp >= CATALOG_TTL:
             models = await self.list_models(provider)
-            if models:
-                # Do not probe custom models serially here.  Each probe can
-                # take up to eight seconds, so ten unavailable/slow models
-                # made a simple Telegram message appear to receive no answer
-                # for more than a minute.  `/models` is the provider's
-                # authoritative discovery endpoint; send the first preferred
-                # discovered model and let the actual chat request report a
-                # real model error if one occurs.
-                selected = pick_model(models)
-                self._model_cache[provider] = selected
-                return selected
-        except Exception:
-            pass
-        
-        # Final fallback
-        fallback = self.resolve_model(model, provider)
-        if fallback:
-            self._model_cache[provider] = fallback
-        return fallback
+        if provider not in self._catalog and models:
+            self._catalog[provider] = (time.monotonic(), models)
+        cached = self._model_cache.get(provider, "")
+        if cached in models and self._eligible(provider, cached):
+            return cached
+        return self._next_model(provider, [])
 
     # ----------------------------------------------------------------- chat
     async def chat(
@@ -237,24 +252,75 @@ class LLMClient:
         thinking: str | None = None,
         temperature: float = 0.4,
         max_tokens: int = 4096,
+        on_progress: Optional[Callable[[str], Awaitable[None]]] = None,
     ) -> dict:
         """One chat completion. Returns the raw response message dict."""
         provider = provider or self.s.provider
+        requested = ((self.s.model if model is None else model) or "").strip()
+        auto = provider == "custom" and requested.lower() in AUTO_TOKENS
         model = await self.resolve_model_async(model, provider)
         
         if not model:
+            if self._catalog.get(provider, (0, []))[1]:
+                raise LLMError("Listed models are temporarily unavailable (cooldown). "
+                               "Try after the gateway cooldown or use /set model <id>.")
+            reason = self._discovery_errors.get(provider, "No models returned")
             raise LLMError(
-                f"No model available for {provider}. "
-                f"Check AI_BASE_URL, AI_API_KEY, and verify /models endpoint works."
+                f"No model available for {provider}: {reason}. "
+                "Check gateway availability, AI_BASE_URL and AI_API_KEY."
             )
         
-        thinking = thinking or self.s.thinking
+        attempts: list[str] = []
+        failures: list[str] = []
+        for _ in range(MAX_AUTO_ATTEMPTS if auto else 1):
+            attempts.append(model)
+            try:
+                message = await self._chat_once(
+                    messages, tools, provider=provider, model=model,
+                    thinking=thinking or self.s.thinking, temperature=temperature,
+                    max_tokens=max_tokens, timeout=AUTO_ATTEMPT_TIMEOUT if auto else TIMEOUT,
+                )
+            except LLMError as e:
+                if not auto or not e.retryable:
+                    if not auto and e.retryable and provider == "custom":
+                        raise LLMError(f"{e}. Use /set model auto to enable failover, "
+                                       "or /set model <id> to select another route.") from e
+                    raise
+                self._cooldowns[provider, model] = time.monotonic() + e.cooldown
+                if e.route_blocked and self._route(model):
+                    self._route_cooldowns[provider, self._route(model)] = (
+                        time.monotonic() + e.cooldown
+                    )
+                if self._model_cache.get(provider) == model:
+                    self._model_cache.pop(provider, None)
+                failures.append(str(e))
+                candidate = self._next_model(provider, attempts)
+                if not candidate or len(attempts) >= MAX_AUTO_ATTEMPTS:
+                    break
+                if on_progress:
+                    await on_progress(f"Model `{model}` unavailable; trying `{candidate}`.")
+                model = candidate
+            else:
+                if auto:
+                    self._model_cache[provider] = model
+                return message
+        raise LLMError(
+            f"No reply after {len(attempts)} model attempts. Failed models are cooling down. "
+            "Use /set model <id> to select a route. Last error: " + failures[-1]
+        )
+
+    async def _chat_once(self, messages, tools, *, provider, model, thinking,
+                         temperature, max_tokens, timeout) -> dict:
         base, headers = self._endpoint(provider, model)
         meta = provider_meta(provider)
 
         if meta.get("auth") == "anthropic":
-            return await self._chat_anthropic(base, headers, model, messages,
-                                              tools, thinking, temperature, max_tokens)
+            try:
+                return await asyncio.wait_for(
+                    self._chat_anthropic(base, headers, model, messages,
+                                         tools, thinking, temperature, max_tokens), timeout)
+            except (asyncio.TimeoutError, httpx.TimeoutException) as e:
+                raise LLMError(f"{provider}/{model} -> timed out after {timeout:g}s") from e
 
         body: dict[str, Any] = {
             "model": model,
@@ -276,26 +342,41 @@ class LLMClient:
 
         url = f"{base}/chat/completions"
         try:
-            async with httpx.AsyncClient(timeout=TIMEOUT) as client:
-                r = await client.post(url, headers=headers, json=body)
-        except httpx.TimeoutException:
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                r = await asyncio.wait_for(
+                    client.post(url, headers=headers, json=body), timeout)
+        except (asyncio.TimeoutError, httpx.TimeoutException):
             raise LLMError(
-                f"{provider}/{model} -> timed out after {int(TIMEOUT)}s. "
-                "The gateway is slow or overloaded; try again or pick another model."
+                f"{provider}/{model} -> timed out after {timeout:g}s.", retryable=True,
             )
         except httpx.RequestError as e:
-            raise LLMError(f"{provider}/{model} -> cannot reach {base}: {e}")
+            raise LLMError(f"{provider}/{model} -> cannot reach gateway: {e}", retryable=True)
         if r.status_code >= 400:
+            reason = clean_error(r.status_code, r.text)
+            cooldown = FAILURE_COOLDOWN
+            reset = re.search(r"reset after\s+(\d+)\s*([ms])", reason, re.I)
+            if reset:
+                cooldown = int(reset[1]) * (60 if reset[2].lower() == "m" else 1)
+            try:
+                cooldown = float(r.headers.get("Retry-After", cooldown))
+            except ValueError:
+                pass
             raise LLMError(
                 f"{provider}/{model} -> HTTP {r.status_code}: "
-                f"{clean_error(r.status_code, r.text)}"
+                f"{reason}", retryable=r.status_code in (404, 408, 429) or r.status_code >= 500,
+                cooldown=max(10, min(cooldown, 600)),
+                route_blocked=r.status_code >= 500 and bool(re.search(r"\b403\b", reason)),
             )
-        data = parse_json_body(r.text)
         try:
-            return data["choices"][0]["message"]
-        except (KeyError, IndexError, TypeError):
+            data = parse_json_body(r.text)
+            message = data["choices"][0]["message"]
+            if not isinstance(message, dict) or not (message.get("content") or message.get("tool_calls")):
+                raise ValueError("empty message")
+            return message
+        except (KeyError, IndexError, TypeError, ValueError):
             raise LLMError(
-                f"{provider}/{model} -> malformed reply: {clean_error(200, r.text)}"
+                f"{provider}/{model} -> empty or malformed reply: {clean_error(200, r.text)}",
+                retryable=True,
             )
 
     async def _chat_anthropic(self, base, headers, model, messages, tools,

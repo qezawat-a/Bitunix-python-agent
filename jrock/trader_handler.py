@@ -400,15 +400,12 @@ async def _signal(args: str, update: Update, ctx) -> str:
     """
     e = _engine(ctx)
     if not e or not e._running:
-        c = await _load_cfg()
         return (
             f"⏸ *Engine stopped* — nothing to report.\n"
-            f"Symbol: `{c['symbol']}` | TF: `{c['timeframes']}`\n"
             f"Start it with `/ton`, or scan once with `/scan`."
         )
 
     snap = e.signal_snapshot()
-    c = await _load_cfg()
     quote_prec = e.cfg.quote_precision
     sig = snap.get("signal") or {}
 
@@ -475,12 +472,12 @@ async def _signal(args: str, update: Update, ctx) -> str:
         )
 
     # Model 4 — say whether the account-wide guard is armed.
-    atp = float(c.get("account_tp") or 0)
-    asl = float(c.get("account_sl") or 0)
+    atp = e.cfg.account_tp
+    asl = e.cfg.account_sl
     if atp or asl:
         out.append(
             f"\n🛑 Account guard: TP `{atp or '—'}` | SL `{asl or '—'}` "
-            f"{c['margin_coin'] if 'margin_coin' in c else 'USDT'}"
+            f"{e.cfg.margin_coin}"
         )
     return "\n".join(out)
 
