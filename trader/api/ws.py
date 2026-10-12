@@ -98,6 +98,7 @@ class BitunixWSClient:
         self._public_subscriptions: List[Dict[str, str]] = []
         self._private_subscriptions: List[Dict[str, str]] = []
         self._pending_unsubscribes: List[Dict[str, str]] = []
+        self._pending_subscribes: List[Dict[str, str]] = []
 
         self._pub_ws: Optional[websockets.WebSocketClientProtocol] = None
         self._priv_ws: Optional[websockets.WebSocketClientProtocol] = None
@@ -126,23 +127,31 @@ class BitunixWSClient:
         """Replace this symbol's kline channels with exactly `intervals`.
 
         The caller should `await apply_subscriptions()` on a live connection so
-        the removals actually reach the gateway.
+        the removals and additions actually reach the gateway.
         """
         keep = [s for s in self._public_subscriptions
                 if interval_from_channel(s.get("ch", "")) is None]
-        dropped = [s for s in self._public_subscriptions
-                   if s not in keep and s.get("symbol") == symbol]
+        current = [s for s in self._public_subscriptions
+                   if interval_from_channel(s.get("ch", "")) is not None
+                   and s.get("symbol") == symbol]
         wanted = [{"ch": kline_channel(tf), "symbol": symbol} for tf in intervals]
+        dropped = [s for s in current if s not in wanted]
+        added = [s for s in wanted if s not in current]
         self._public_subscriptions = keep + wanted
         self._pending_unsubscribes.extend(dropped)
+        self._pending_subscribes.extend(added)
 
     async def apply_subscriptions(self) -> None:
-        """Flush pending unsubscribe messages to the live public socket."""
-        if not self._pending_unsubscribes:
+        """Flush pending kline subscription changes to the live socket."""
+        if not self._pending_unsubscribes and not self._pending_subscribes:
             return
         subs, self._pending_unsubscribes = self._pending_unsubscribes, []
+        adds, self._pending_subscribes = self._pending_subscribes, []
         if self._pub_ws:
-            await self._send_subscribe(self._pub_ws, subs, op="unsubscribe")
+            if subs:
+                await self._send_subscribe(self._pub_ws, subs, op="unsubscribe")
+            if adds:
+                await self._send_subscribe(self._pub_ws, adds, op="subscribe")
 
     def subscribe_depth(self, symbol: str) -> None:
         self._public_subscriptions.append({"ch": "depth_book1", "symbol": symbol})

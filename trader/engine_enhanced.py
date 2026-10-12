@@ -933,7 +933,7 @@ class TradingEngine:
 
     def _apply_tpsl_action(self, pos_id: str, pos: "ManagedPosition",
                            result: dict) -> None:
-        """Push a TPSL state change to the exchange, then report it."""
+        """Push a TPSL state change and report only confirmed exchange state."""
         action = result.get("action", "none")
         if action == "none":
             return
@@ -941,10 +941,49 @@ class TradingEngine:
         if action in ("breakeven", "trailing_start", "trailing_update"):
             # Before the first attach there is no order to modify, and a
             # modify would bounce with "order not found". Attach instead.
-            if pos.tpsl_attached:
-                asyncio.create_task(self._push_position_tpsl(pos))
-            else:
-                asyncio.create_task(self._attach_position_tpsl(pos))
+            asyncio.create_task(self._persist_tpsl_action(pos_id, pos, result))
+
+    async def _persist_tpsl_action(self, pos_id: str, pos: "ManagedPosition",
+                                   result: dict) -> None:
+        """Persist a local TPSL transition, rolling it back on rejection.
+
+        PositionTPSL mutates first so the next ticker can reason about the new
+        state.  That state is only authoritative after Bitunix accepts the
+        corresponding request.  Previously a rejected breakeven remained in
+        memory forever, so reports displayed `SL == entry` even though the
+        exchange still had the old stop (or no stop).
+        """
+        action = result.get("action", "none")
+        if self.cfg.paper:
+            accepted = True
+        elif pos.tpsl_attached:
+            accepted = await self._push_position_tpsl(pos)
+        else:
+            accepted = await self._attach_position_tpsl(pos)
+
+        if not accepted:
+            tpsl = pos.tpsl
+            if tpsl:
+                old_sl = result.get("old_sl")
+                if old_sl is not None:
+                    tpsl.sl_price = old_sl
+                if action == "breakeven":
+                    tpsl.breakeven_set = False
+                elif action == "trailing_start":
+                    tpsl.trailing_active = False
+                    old_tp = result.get("old_tp")
+                    if old_tp is not None:
+                        tpsl.tp_price = old_tp
+            logger.warning(
+                f"TPSL action {action} rejected for {pos_id}; "
+                f"local state restored to the last confirmed level"
+            )
+            self._notify(
+                f"⚠️ TPSL `{action}` was not applied on `{pos_id}`; "
+                f"local state restored to the last confirmed SL"
+            )
+            return
+
         if action == "trailing_update":
             logger.info(f"trailing {pos_id}: SL {result.get('old_sl')} -> "
                         f"{result.get('new_sl')}")
@@ -952,10 +991,10 @@ class TradingEngine:
         notes = {
             "breakeven": f"🎯 *Breakeven Set*\nID: `{pos_id}`\n"
                          f"PNL: `{pos.unrealized_pnl_pct:+.2f}%`\n"
-                         f"SL moved to entry: `{result.get('new_sl')}`",
+                         f"SL confirmed at: `{result.get('new_sl')}`",
             "trailing_start": f"📈 *Trailing Activated*\nID: `{pos_id}`\n"
                               f"PNL: `{pos.unrealized_pnl_pct:+.2f}%`\n"
-                              f"SL: `{result.get('new_sl')}`",
+                              f"SL confirmed at: `{result.get('new_sl')}`",
         }
         if action in notes:
             self._notify(notes[action])
@@ -1455,15 +1494,40 @@ class TradingEngine:
                 f"unreliable"
             )
 
-    async def _push_position_tpsl(self, pos: "ManagedPosition") -> None:
+    async def _push_position_tpsl(self, pos: "ManagedPosition") -> bool:
         """Rewrite the position's TP/SL after a local level change.
 
         Uses tpsl/position/modify_order — keyed by symbol + positionId, not by
         orderId. Skipped in paper mode: there is nothing on the exchange to move.
         """
         if self.cfg.paper or not pos.tpsl:
-            return
+            return True
         body = pos.tpsl.position_payload()
+
+        # Bitunix validates a stop against the CURRENT mark price, not the
+        # price that triggered this local state transition.  A breakeven event
+        # can therefore race a falling tick: for a long, entry may already be
+        # above mark by the time modify_position_tpsl is received.  Do not send
+        # a guaranteed-rejection, and do not let the local report claim that
+        # the rejected level is live.
+        mark = self._last_price
+        sl = pos.tpsl.sl_price
+        invalid = bool(
+            mark > 0 and sl is not None and
+            ((pos.side == "LONG" and sl >= mark) or
+             (pos.side == "SHORT" and sl <= mark))
+        )
+        if invalid:
+            logger.warning(
+                f"not updating position {pos.position_id} TPSL: "
+                f"SL {sl} is not beyond current mark {mark} for {pos.side}"
+            )
+            self._notify(
+                f"⚠️ TP/SL update skipped for `{pos.position_id}`: "
+                f"SL `{price_precision(sl, self.cfg.quote_precision)}` is "
+                f"invalid against current mark `{price_precision(mark, self.cfg.quote_precision)}`"
+            )
+            return False
         try:
             await self.rest.modify_position_tpsl(
                 symbol=pos.symbol, position_id=pos.position_id,
@@ -1471,12 +1535,16 @@ class TradingEngine:
                 tp_stop_type=body.get("tpStopType"), sl_stop_type=body.get("slStopType"),
             )
             logger.info(f"position {pos.position_id} TPSL updated: {body}")
+            return True
         except BitunixError as e:
             logger.error(f"modify_position_tpsl failed for {pos.position_id}: {e}")
             self._notify(f"⚠️ Could not update TP/SL on `{pos.position_id}`: "
                          f"[{e.code}] {e.msg}")
+            return False
         except Exception as e:
             logger.error(f"modify_position_tpsl error for {pos.position_id}: {e}")
+            self._notify(f"⚠️ Could not update TP/SL on `{pos.position_id}`: {e}")
+            return False
 
     def _remove_pending_entry(self, key: tuple, entry: dict) -> None:
         """Remove one specific waiting entry, pruning the queue if it empties."""
@@ -1600,7 +1668,7 @@ class TradingEngine:
                        f"liq {liq} (was outside)")
         return True
 
-    async def _attach_position_tpsl(self, pos: "ManagedPosition") -> None:
+    async def _attach_position_tpsl(self, pos: "ManagedPosition") -> bool:
         """Reconcile the position's protective orders, and place the ladder.
 
         The market order already carries the position TP/SL, so normally this
@@ -1613,7 +1681,7 @@ class TradingEngine:
         because Bitunix permits only ONE position TP/SL per position.
         """
         if self.cfg.paper or not pos.tpsl or pos.tpsl_attached:
-            return
+            return True
 
         # Last gate before anything reaches the exchange. A stop on the far side
         # of liquidation can never fill, so if the levels came from anywhere
@@ -1647,7 +1715,7 @@ class TradingEngine:
                 logger.error(f"place_position_tpsl failed for {pos.position_id}: {e}")
                 self._notify(f"⚠️ Could not attach TP/SL to `{pos.position_id}`: "
                              f"[{e.code}] {e.msg}")
-                return
+                return False
             self._notify(
                 f"🛡 *TP/SL attached* `{pos.position_id}`\n"
                 f"SL: `{body.get('slPrice')}`"
@@ -1670,10 +1738,12 @@ class TradingEngine:
                     f"`{pos.symbol}` {pos.side} `{pos.position_id}` — SL was "
                     f"beyond liquidation and could never fill. Moved inside."
                 )
-                await self._push_position_tpsl(pos)
+                if not await self._push_position_tpsl(pos):
+                    return False
 
         if pos.tpsl.method is TPSLMethod.PARTIAL:
             await self._place_partial_ladder(pos)
+        return True
 
     async def _place_partial_ladder(self, pos: "ManagedPosition") -> None:
         """Place the Partial TP/SL ladder as sized tpsl/place_order calls."""

@@ -1095,6 +1095,18 @@ async def _set_timeframes(args: str, update: Update, ctx) -> str:
     if e:
         e.cfg.timeframes = tfs
         e.cfg.interval = tfs[0]
+        # Changing the config alone used to leave the running websocket on its
+        # original channel (usually 15m).  The periodic loop then scanned the
+        # new list while only old candles were arriving, so the operator saw a
+        # mixture of stale 15m logs and empty new timeframes.  Replace the live
+        # subscriptions and seed the new buffers immediately.
+        e.ws.set_kline_subscriptions(e.cfg.symbol, tfs)
+        e._klines = {tf: e._klines[tf] for tf in tfs if tf in e._klines}
+        try:
+            await e.ws.apply_subscriptions()
+            await e._backfill_klines()
+        except Exception as ex:
+            return f"⚠️ Timeframes saved but live stream refresh failed: `{ex}`"
     return f"✅ Timeframes: `{', '.join(tfs)}`"
 
 
