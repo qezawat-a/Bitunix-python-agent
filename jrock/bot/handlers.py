@@ -90,6 +90,7 @@ TRADER_HELP = """<b>Bitunix Futures</b> — /trader &lt;command&gt;
 
 <b>Risk</b>
 /trader close &lt;all|id&gt; - close a position
+/trader tpsl [id] - verify or repair exchange TP/SL
 
 Paper mode is on by default — no real order is placed until you
 explicitly set <code>/trader paper off</code>.

@@ -82,6 +82,7 @@ DISPATCH = {
 
     # trading actions
     "close":        "_close",
+    "tpsl":         "_put_tpsl",
     "cancel":       "_cancel",
 
     # settings (all settable params)
@@ -654,13 +655,15 @@ def format_report(e) -> str:
         sl = f"{p['sl']:.{qp}f}" if p.get("sl") else "—"
         tp = f"{p['tp']:.{qp}f}" if p.get("tp") else "—"
         entry = f"{p['entry']:.{qp}f}" if p.get("entry") else "—"
+        tpsl_status = p.get("tpsl_status", "UNCONFIRMED")
+        tpsl_note = "" if p.get("tpsl_confirmed") else f" ⚠️TPSL:{tpsl_status}"
         # Mark a locally-derived PNL. It is an estimate from the last tick, not
         # the exchange's figure, and at high leverage the difference is not
         # cosmetic.
         approx = "~" if p.get("pnl_source") == "derived" else ""
         lines.append(f"• `{p['symbol']}` {p['side']} `{entry}` "
                      f"`{approx}{p['pnl_usdt']:+.4f}` ({p['pnl_pct']:+.2f}% on margin) "
-                     f"SL:`{sl}` TP:`{tp}`{flags}{danger}")
+                     f"SL:`{sl}` TP:`{tp}`{flags}{danger}{tpsl_note}")
     # Total PNL always, positions or not — the number that matters. Measured
     # against ACCOUNT EQUITY, so it reads as a normal account percentage; the
     # per-position figure above is ROI on committed margin, which at high
@@ -797,14 +800,17 @@ async def _positions(args: str, update: Update, ctx) -> str:
     if e and e._open_positions:
         lines = ["*📋 Positions (engine):*"]
         for pid, pos in e._open_positions.items():
-            tp = pos.tpsl.tp_price if pos.tpsl else "?"
-            sl = pos.tpsl.sl_price if pos.tpsl else "?"
+            live = bool(e.cfg.paper or pos.tpsl_confirmed)
+            tp = pos.tpsl.tp_price if pos.tpsl and live else "—"
+            sl = pos.tpsl.sl_price if pos.tpsl and live else "—"
+            tpsl_state = "PAPER" if e.cfg.paper else pos.tpsl_status
             lines.append(
                 f"• `{pos.symbol}` {pos.side} qty=`{pos.qty}`\n"
                 f"  Entry: `{pos.entry_price}` | Price: `{pos.current_price:.6f}`\n"
                 f"  PNL: `{pos.unrealized_pnl_pct:+.2f}%` | TP:`{tp}` SL:`{sl}`\n"
-                f"  {'🎯 Breakeven' if pos.tpsl and pos.tpsl.breakeven_set else ''}"
-                f"{'  📈 Trailing' if pos.tpsl and pos.tpsl.trailing_active else ''}"
+                f"  TPSL: `{tpsl_state}`"
+                f"{' | 🎯 Breakeven' if pos.tpsl and live and pos.tpsl.breakeven_set else ''}"
+                f"{' | 📈 Trailing' if pos.tpsl and live and pos.tpsl.trailing_active else ''}"
             )
         return "\n".join(lines)
 
@@ -955,6 +961,16 @@ async def _close(args: str, update: Update, ctx) -> str:
         return f"❌ [{e.code}] {e.msg}"
     finally:
         await client.close()
+
+
+async def _put_tpsl(args: str, update: Update, ctx) -> str:
+    """Verify or repair exchange TPSL instead of only describing the action."""
+    if not _is_owner(update):
+        return "❌ Owner only"
+    e = _engine(ctx)
+    if not e:
+        return "❌ Engine not running"
+    return await e.ensure_tpsl(args.strip())
 
 
 async def _cancel(args: str, update: Update, ctx) -> str:

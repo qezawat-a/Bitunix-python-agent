@@ -48,3 +48,16 @@ async def set_setting(args: dict, ctx: AgentContext) -> str:
     fake_ctx = SimpleNamespace(bot_data=ctx.bot_data if ctx.bot_data is not None else {},
                                bot=ctx.chat)
     return await trader_handler._set(f"{key} {val}", fake_update, fake_ctx)
+
+
+async def put_tpsl(args: dict, ctx: AgentContext) -> str:
+    """Verify or repair the exchange TPSL on a live position."""
+    if not Config.is_admin(ctx.user_id):
+        return "Owner only."
+    bot_data = ctx.bot_data or {}
+    engine = bot_data.get("trader_engine")
+    if not engine:
+        return "Trader engine is offline. Start it first."
+    position_id = str(args.get("position_id", "") or "").strip()
+    await ctx.say("🔎 Checking Bitunix for a live TPSL order before reporting success…")
+    return await engine.ensure_tpsl(position_id)

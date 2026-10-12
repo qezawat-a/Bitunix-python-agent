@@ -102,6 +102,11 @@ class Agent:
             "(destructive actions need user approval unless auto-approve is on)\n"
             f"auto_approve_on_edit: {s.auto_approve_on_edit}\n"
             f"learning: {s.learning}\n</harness>",
+            "<trading>For a request to put, repair, or verify TPSL, call "
+            "trader_put_tpsl. Never say TPSL was placed based only on intent or "
+            "on a local level; report the tool's exchange-confirmed result. "
+            "For an urgent open-position risk, perform the tool call before "
+            "explaining.</trading>",
         ]
         if self.role != "general":
             parts.append(self._role_block())

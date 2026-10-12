@@ -87,6 +87,10 @@ def build_registry() -> dict[str, Tool]:
              "TP/SL, max_positions) need the user to tap Approve. Never change a setting the "
              "user did not ask for.", _p({"key": S, "value": S}, ["key", "value"]),
              trader_tools.set_setting),
+        Tool("trader_put_tpsl", "Verify and, if missing, place exchange TP/SL protection "
+             "on an open position. Never claim success unless Bitunix reports a pending "
+             "stop-loss order. Optional position_id targets one position; omit it for all.",
+             _p({"position_id": S}), trader_tools.put_tpsl),
         Tool("agent_spawn", "Delegate a task to a sub-agent (build|plan).",
              _p({"role": S, "task": S}, ["role", "task"]), _agent_spawn, enabled_by="all"),
     ]

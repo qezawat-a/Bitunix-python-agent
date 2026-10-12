@@ -184,6 +184,13 @@ class ManagedPosition:
     # Whether the protective orders already exist on the exchange. Guards
     # against re-placing them on every resync.
     tpsl_attached: bool = False
+    # True only after a pending-order read or a successful placement confirms
+    # that Bitunix has a live stop.  `tpsl_attached` alone is not enough: the
+    # old code set it before the API call and reports then displayed the local
+    # ATR levels even when the exchange had rejected the order.
+    tpsl_confirmed: bool = False
+    tpsl_status: str = "UNCONFIRMED"
+    tpsl_last_attempt_at: float = 0.0
     current_price: float = 0.0
     unrealized_pnl_pct: float = 0.0
     best_price: float = 0.0
@@ -257,6 +264,8 @@ class ManagedPosition:
             "unrealized_pnl_pct": self.unrealized_pnl_pct,
             "tp_price": self.tpsl.tp_price if self.tpsl else None,
             "sl_price": self.tpsl.sl_price if self.tpsl else None,
+            "tpsl_confirmed": self.tpsl_confirmed,
+            "tpsl_status": self.tpsl_status,
             "breakeven_set": self.tpsl.breakeven_set if self.tpsl else False,
             "trailing_active": self.tpsl.trailing_active if self.tpsl else False,
             "opened_at": self.opened_at,
@@ -348,6 +357,22 @@ class TradingEngine:
         """Register callback for Telegram notifications."""
         self._notify_cb = callback
 
+    def _schedule_background(self, awaitable: Any, label: str) -> asyncio.Task:
+        """Run a background task without losing exceptions silently."""
+        task = asyncio.create_task(awaitable)
+
+        def _done(done: asyncio.Task) -> None:
+            if done.cancelled():
+                return
+            try:
+                done.result()
+            except Exception as e:
+                logger.exception(f"background task {label} failed: {e}")
+                self._notify(f"⚠️ Background task `{label}` failed: {type(e).__name__}")
+
+        task.add_done_callback(_done)
+        return task
+
     def signal_snapshot(self) -> dict:
         """Everything /signal needs: price, last signal, open positions, PNL.
 
@@ -366,6 +391,7 @@ class TradingEngine:
         total_mixed = False
         for pos in self._open_positions.values():
             tpsl = pos.tpsl
+            tpsl_live = bool(self.cfg.paper or pos.tpsl_confirmed)
             price = pos.current_price or self._last_price
             # Prefer the exchange's own uPNL; fall back to deriving it from
             # price movement so the number is never silently zero. Say which
@@ -406,17 +432,22 @@ class TradingEngine:
                 "pnl_pct": pos.unrealized_pnl_pct,
                 "pnl_usdt": upnl,
                 "pnl_source": source,
-                "tp": tpsl.tp_price if tpsl else None,
-                "sl": tpsl.sl_price if tpsl else None,
+                # Never present locally calculated levels as exchange orders.
+                # A failed placement/modify must be visible as missing, not as
+                # a convincing-looking SL/TP number.
+                "tp": tpsl.tp_price if tpsl and tpsl_live else None,
+                "sl": tpsl.sl_price if tpsl and tpsl_live else None,
+                "tpsl_confirmed": tpsl_live,
+                "tpsl_status": "PAPER" if self.cfg.paper else pos.tpsl_status,
                 "liq": pos.liq_price,
                 "method": tpsl.method.value if tpsl else None,
-                "breakeven": bool(tpsl and tpsl.breakeven_set),
-                "trailing": bool(tpsl and tpsl.trailing_active),
+                "breakeven": bool(tpsl and tpsl_live and tpsl.breakeven_set),
+                "trailing": bool(tpsl and tpsl_live and tpsl.trailing_active),
                 "margin": pos.margin,
                 # True when the stop sits on the far side of liquidation and so
                 # can never fire — the exchange closes the position first.
                 "sl_beyond_liq": bool(
-                    pos.liq_price and tpsl
+                    pos.liq_price and tpsl and tpsl_live
                     and (tpsl.sl_price - pos.entry_price) * (pos.liq_price - pos.entry_price) > 0
                     and abs(tpsl.sl_price - pos.entry_price) > abs(pos.liq_price - pos.entry_price)
                 ),
@@ -481,6 +512,38 @@ class TradingEngine:
     def set_strategies(self, names: List[str]) -> None:
         self.cfg.active_strategies = names
         self._reload_strategies()
+
+    async def ensure_tpsl(self, position_id: str = "") -> str:
+        """Explicitly verify/repair TPSL for one or all live positions."""
+        if self.cfg.paper:
+            return "Paper mode: no exchange TPSL exists."
+
+        await self.sync_positions()
+        wanted = str(position_id or "").strip()
+        positions = [p for pid, p in self._open_positions.items()
+                     if not wanted or pid == wanted]
+        if not positions:
+            return f"No open position found{f' for `{wanted}`' if wanted else ''}."
+
+        results = []
+        for pos in positions:
+            confirmed = await self._refresh_position_tpsl(pos)
+            if not confirmed:
+                await self._attach_position_tpsl(pos)
+                confirmed = await self._refresh_position_tpsl(pos)
+            if confirmed and pos.tpsl:
+                results.append(
+                    f"✅ `{pos.position_id}` TPSL confirmed — "
+                    f"SL `{price_precision(pos.tpsl.sl_price, self.cfg.quote_precision)}`"
+                    + (f" | TP `{price_precision(pos.tpsl.tp_price, self.cfg.quote_precision)}`"
+                       if pos.tpsl.tp_price else "")
+                )
+            else:
+                results.append(
+                    f"❌ `{pos.position_id}` TPSL NOT CONFIRMED — "
+                    f"exchange state: `{pos.tpsl_status}`"
+                )
+        return "\n".join(results)
     
     def _reload_strategies(self) -> None:
         self._strategies = [
@@ -805,7 +868,9 @@ class TradingEngine:
             self._open_positions[pos_id] = pos
             # Protection first, notification second: a position must never be
             # reported as opened while it is still naked on the exchange.
-            asyncio.create_task(self._attach_position_tpsl(pos))
+            self._schedule_background(
+                self._attach_position_tpsl(pos), f"attach-tpsl:{pos_id}"
+            )
             self._notify(
                 f"✅ *New Position*\n"
                 f"ID: `{pos_id}`\n"
@@ -941,7 +1006,10 @@ class TradingEngine:
         if action in ("breakeven", "trailing_start", "trailing_update"):
             # Before the first attach there is no order to modify, and a
             # modify would bounce with "order not found". Attach instead.
-            asyncio.create_task(self._persist_tpsl_action(pos_id, pos, result))
+            self._schedule_background(
+                self._persist_tpsl_action(pos_id, pos, result),
+                f"update-tpsl:{pos_id}:{action}",
+            )
 
     async def _persist_tpsl_action(self, pos_id: str, pos: "ManagedPosition",
                                    result: dict) -> None:
@@ -1668,40 +1736,113 @@ class TradingEngine:
                        f"liq {liq} (was outside)")
         return True
 
-    async def _attach_position_tpsl(self, pos: "ManagedPosition") -> bool:
-        """Reconcile the position's protective orders, and place the ladder.
+    @staticmethod
+    def _pending_tpsl_rows(resp: Dict[str, Any]) -> list[Dict[str, Any]]:
+        """Normalize the several shapes used by Bitunix pending-TPSL replies."""
+        data = (resp or {}).get("data") or []
+        if isinstance(data, dict):
+            data = (data.get("list") or data.get("orderList") or
+                    data.get("orders") or data.get("positionTpslList") or
+                    data.get("positionTpslOrderList") or [data])
+        return [row for row in data if isinstance(row, dict)]
 
-        The market order already carries the position TP/SL, so normally this
-        finds them in place and only fills the gaps: a position that predates
-        this process (restart) has none, and PARTIAL additionally needs its
-        sized take-profit rungs, which place_order cannot express.
+    def _record_exchange_tpsl(self, pos: "ManagedPosition",
+                              rows: list[Dict[str, Any]]) -> bool:
+        """Update local TPSL only from levels actually returned by Bitunix."""
+        sl = tp = None
+        for row in rows:
+            for key in ("slPrice", "stopLossPrice", "stopLossTriggerPrice"):
+                value = _opt_float(row.get(key))
+                if value and value > 0:
+                    sl = sl or value
+            for key in ("tpPrice", "takeProfitPrice", "takeProfitTriggerPrice"):
+                value = _opt_float(row.get(key))
+                if value and value > 0:
+                    tp = tp or value
 
-        Guarded by pos.tpsl_attached so a resync can never stack duplicate
-        protective orders on one position, and it checks the exchange first
-        because Bitunix permits only ONE position TP/SL per position.
-        """
-        if self.cfg.paper or not pos.tpsl or pos.tpsl_attached:
-            return True
+        pos.tpsl_attached = bool(rows)
+        if sl is None:
+            pos.tpsl_confirmed = False
+            pos.tpsl_status = "MISSING" if not rows else "NO_SL"
+            return False
 
-        # Last gate before anything reaches the exchange. A stop on the far side
-        # of liquidation can never fill, so if the levels came from anywhere
-        # other than _plan_risk — an adopted position, a slipped fill — bound
-        # them here rather than trusting the caller.
-        moved_sl = self._bound_sl_inside_liq(pos)
+        pos.tpsl_confirmed = True
+        pos.tpsl_status = "CONFIRMED"
+        if pos.tpsl:
+            # These are now exchange levels, not ATR estimates.
+            pos.tpsl.sl_price = sl
+            if tp is not None:
+                pos.tpsl.tp_price = tp
+        return True
 
-        already_there = False
+    async def _refresh_position_tpsl(self, pos: "ManagedPosition") -> bool:
+        """Read pending orders and return whether an exchange SL is confirmed."""
         try:
             resp = await self.rest.get_pending_tpsl_orders(
                 symbol=pos.symbol, position_id=pos.position_id, limit=100)
-            existing = resp.get("data") or []
-            if isinstance(existing, dict):
-                existing = existing.get("list") or []
-            already_there = bool(existing)
+            return self._record_exchange_tpsl(pos, self._pending_tpsl_rows(resp))
         except Exception as e:
+            pos.tpsl_confirmed = False
+            pos.tpsl_status = "CHECK_FAILED"
             logger.warning(f"pending tpsl check failed for {pos.position_id}: {e}")
+            return False
 
-        if not already_there:
-            pos.tpsl_attached = True
+    def _make_stop_valid_for_mark(self, pos: "ManagedPosition") -> None:
+        """Move an emergency stop to the valid side of the current mark."""
+        if not pos.tpsl or self._last_price <= 0:
+            return
+        tick = 10 ** -self.cfg.quote_precision
+        mark = self._last_price
+        if pos.side == "LONG" and pos.tpsl.sl_price >= mark:
+            pos.tpsl.sl_price = max(tick, mark - tick)
+            logger.warning(f"position {pos.position_id} SL moved below mark "
+                           f"for emergency protection: {pos.tpsl.sl_price}")
+        elif pos.side == "SHORT" and pos.tpsl.sl_price <= mark:
+            pos.tpsl.sl_price = mark + tick
+            logger.warning(f"position {pos.position_id} SL moved above mark "
+                           f"for emergency protection: {pos.tpsl.sl_price}")
+
+    async def _attach_position_tpsl(self, pos: "ManagedPosition") -> bool:
+        """Verify or place TPSL, and never call local levels exchange-confirmed."""
+        if self.cfg.paper:
+            pos.tpsl_confirmed = True
+            pos.tpsl_status = "PAPER"
+            return True
+        if not pos.tpsl:
+            pos.tpsl_confirmed = False
+            pos.tpsl_status = "NO_LOCAL_STATE"
+            return False
+        if pos.tpsl_attached and pos.tpsl_confirmed:
+            return True
+
+        confirmed = await self._refresh_position_tpsl(pos)
+        if confirmed:
+            moved_sl = self._bound_sl_inside_liq(pos)
+            if moved_sl and not await self._push_position_tpsl(pos):
+                return False
+            if pos.tpsl.method is TPSLMethod.PARTIAL:
+                await self._place_partial_ladder(pos)
+            return True
+
+        # An existing TP-only order can be repaired with the position modify
+        # endpoint. If there is no order at all, place a new position TPSL.
+        if pos.tpsl_attached:
+            self._make_stop_valid_for_mark(pos)
+            body = pos.tpsl.position_payload()
+            try:
+                await self.rest.modify_position_tpsl(
+                    symbol=pos.symbol, position_id=pos.position_id,
+                    tp_price=body.get("tpPrice"), sl_price=body.get("slPrice"),
+                    tp_stop_type=body.get("tpStopType"), sl_stop_type=body.get("slStopType"),
+                )
+                pos.tpsl_last_attempt_at = time.time()
+            except BitunixError as e:
+                logger.error(f"repair TPSL failed for {pos.position_id}: {e}")
+                self._notify(f"⚠️ Could not repair TPSL on `{pos.position_id}`: "
+                             f"[{e.code}] {e.msg}")
+                return False
+        elif time.time() - pos.tpsl_last_attempt_at >= 30:
+            self._make_stop_valid_for_mark(pos)
             body = pos.tpsl.position_payload()
             try:
                 await self.rest.place_position_tpsl(
@@ -1709,38 +1850,31 @@ class TradingEngine:
                     tp_price=body.get("tpPrice"), sl_price=body.get("slPrice"),
                     tp_stop_type=body.get("tpStopType"), sl_stop_type=body.get("slStopType"),
                 )
-                logger.info(f"position {pos.position_id} TPSL placed: {body}")
+                pos.tpsl_attached = True
+                pos.tpsl_last_attempt_at = time.time()
+                pos.tpsl_status = "VERIFYING"
+                logger.info(f"position {pos.position_id} TPSL submitted: {body}")
             except BitunixError as e:
-                pos.tpsl_attached = False   # let the next sync retry
+                pos.tpsl_attached = False
                 logger.error(f"place_position_tpsl failed for {pos.position_id}: {e}")
                 self._notify(f"⚠️ Could not attach TP/SL to `{pos.position_id}`: "
                              f"[{e.code}] {e.msg}")
                 return False
-            self._notify(
-                f"🛡 *TP/SL attached* `{pos.position_id}`\n"
-                f"SL: `{body.get('slPrice')}`"
-                + (f" | TP: `{body.get('tpPrice')}`" if body.get("tpPrice") else "")
-            )
-        else:
-            # Order-level TP/SL is already live (or predates this process).
-            pos.tpsl_attached = True
-            logger.info(f"position {pos.position_id} already has "
-                        f"{len(existing)} TP/SL order(s); leaving them alone")
-            if moved_sl:
-                # The stop that is already on the exchange sits beyond
-                # liquidation, so it can never fill. Under CROSS the liquidation
-                # price moves as the account balance moves, which is how a stop
-                # placed correctly at entry drifts outside it later. Rewrite it
-                # rather than just reporting SL>LIQ every cycle.
-                logger.warning(f"rewriting out-of-bounds SL for {pos.position_id}")
-                self._notify(
-                    f"🛠 *Stop rescued*\n"
-                    f"`{pos.symbol}` {pos.side} `{pos.position_id}` — SL was "
-                    f"beyond liquidation and could never fill. Moved inside."
-                )
-                if not await self._push_position_tpsl(pos):
-                    return False
 
+        # A successful HTTP response is not enough; verify the pending order.
+        confirmed = await self._refresh_position_tpsl(pos)
+        if not confirmed:
+            pos.tpsl_status = "VERIFYING" if pos.tpsl_attached else pos.tpsl_status
+            self._notify(f"⚠️ TPSL for `{pos.position_id}` is not confirmed on "
+                         f"the exchange ({pos.tpsl_status})")
+            return False
+
+        self._notify(
+            f"🛡 *TP/SL confirmed* `{pos.position_id}`\n"
+            f"SL: `{price_precision(pos.tpsl.sl_price, self.cfg.quote_precision)}`"
+            + (f" | TP: `{price_precision(pos.tpsl.tp_price, self.cfg.quote_precision)}`"
+               if pos.tpsl.tp_price else "")
+        )
         if pos.tpsl.method is TPSLMethod.PARTIAL:
             await self._place_partial_ladder(pos)
         return True
@@ -1900,7 +2034,9 @@ class TradingEngine:
                 # A position that exists only because the process restarted
                 # still needs its stop; attach it once, guarded per position.
                 if not self.cfg.paper:
-                    asyncio.create_task(self._attach_position_tpsl(pos))
+                    self._schedule_background(
+                        self._attach_position_tpsl(pos), f"attach-tpsl:{pid}"
+                    )
             else:
                 new_qty = str(row.get("qty", pos.qty))
                 if new_qty != pos.qty:
@@ -1932,6 +2068,14 @@ class TradingEngine:
                         # peak the trail has been tracking and leaves the stop
                         # looser than it already was.
                 pos.leverage = _opt_float(row.get("leverage")) or pos.leverage
+            if not self.cfg.paper:
+                # The report must be based on the exchange's current pending
+                # TPSL orders, not on the last local request.  If the order was
+                # rejected, cancelled, or disappeared, retry the protection
+                # path and keep the report explicitly unconfirmed meanwhile.
+                confirmed = await self._refresh_position_tpsl(pos)
+                if not confirmed:
+                    await self._attach_position_tpsl(pos)
             pos.liq_price = _opt_float(row.get("liqPrice")) or 0.0
             # Keep the exchange's own uPNL on the position itself, not just in
             # the log total below.
